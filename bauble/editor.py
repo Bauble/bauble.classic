@@ -401,14 +401,17 @@ class GenericEditorView(object):
         self.assign_simple_handler()
 
         :param combo:
-        :param translations: a dictionary of values->translation
+        :param translations: a list of pairs, or a dictionary,
+            of values->translation.
         """
         if isinstance(combo, basestring):
             combo = self.widgets[combo]
         combo.clear()
         # using 'object' avoids SA unicode warning
         model = gtk.ListStore(object, str)
-        for key, value in sorted(translations.iteritems(), key=lambda x: x[1]):
+        if isinstance(translations, dict):
+            translations = sorted(translations.iteritems(), key=lambda x: x[1])
+        for key, value in translations:
             model.append([key, value])
         combo.set_model(model)
         cell = gtk.CellRendererText()
@@ -1124,9 +1127,10 @@ class PictureBox(NoteBox):
                     pixbuf = fullbuf.scale_simple(
                         x, y, gtk.gdk.INTERP_BILINEAR)
                 im.set_from_pixbuf(pixbuf)
-            except glib.GError:
+            except glib.GError, e:
+                logger.debug("picture %s caused glib.GError %s" %
+                             (filename, e))
                 label = _('picture file %s not found.') % filename
-                logger.debug(label)
                 im = gtk.Label()
                 im.set_text(label)
             except Exception, e:
@@ -1161,11 +1165,13 @@ class PictureBox(NoteBox):
                 from PIL import Image
                 im = Image.open(filename)
                 im.thumbnail((400, 400))
-                im.save(os.path.join(
-                    prefs.prefs[prefs.picture_root_pref], 'thumbs', filename))
+                self.last_folder, basename = os.path.split(filename)
+                full_dest_path = os.path.join(
+                    prefs.prefs[prefs.picture_root_pref], 'thumbs', basename)
+                logger.debug('copying %s to %s' % (filename, full_dest_path))
+                im.save(full_dest_path)
                 ## get dirname and basename from selected file, memorize
                 ## dirname
-                self.last_folder, basename = os.path.split(filename)
                 ## make sure the category is <picture>
                 self.set_model_attr('category', u'<picture>')
                 ## store basename in note field and fire callbacks.
