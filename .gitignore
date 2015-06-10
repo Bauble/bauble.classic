@@ -1,13 +1,13 @@
 issues.txt
 .bzr
 doc/.build
-po
 .tx
 *~
 *pyc
 build
 dist
 bauble.egg-info
+po/*.mo
 
 ## temporary files from the Cuchubo activity. ask mario@anche.no
 scripts/drop2bauble.py
