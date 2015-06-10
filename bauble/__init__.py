@@ -308,6 +308,7 @@ def main(uri=None):
         '.classic/bauble-%s.%s/bauble/version.py') % version_tuple[:2]
     try:
         import urllib2
+        import ssl
         github_version_stream = urllib2.urlopen(
             version_on_github, timeout=1)
         if newer_version_on_github(github_version_stream):
@@ -321,10 +322,16 @@ def main(uri=None):
             if response != gtk.RESPONSE_OK:
                 exit(0)
     except urllib2.URLError:
-        logger.warning('connection is slow or down')
+        logger.info('connection is slow or down')
+        pass
+    except ssl.SSLError, e:
+        logger.info('SSLError %s while checking for newer version' % e)
         pass
     except urllib2.HTTPError:
-        logger.warning('HTTPError while checking for newer version')
+        logger.info('HTTPError while checking for newer version')
+        pass
+    except:
+        logger.warning('unhandled exception while checking for newer version')
         pass
 
     open_exc = None

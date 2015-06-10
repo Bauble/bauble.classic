@@ -17,7 +17,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with bauble.classic. If not, see <http://www.gnu.org/licenses/>.
-
 #
 # accessions module
 #
@@ -156,6 +155,28 @@ def get_next_code():
     finally:
         session.close()
     return next
+
+
+def generic_taxon_add_action(model, view, presenter, top_presenter,
+                             button, taxon_entry):
+    """user hit click on taxon add button
+
+    new taxon goes into model.species;
+    its string representation into taxon_entry.
+    """
+
+    from bauble.plugins.plants.species import SpeciesEditor
+    editor = SpeciesEditor(parent=view.get_window())
+    if editor.start():
+        logger.debug('new taxon added from within VerificationBox')
+        # add the new taxon to the session and start using it
+        presenter.session.add(editor.model)
+        taxon_entry.set_text("%s" % editor.model)
+        presenter.remove_problem(
+            hash(taxon_entry.get_name()), None)
+        setattr(model, 'species', editor.model)
+        presenter._dirty = True
+        top_presenter.refresh_sensitivity()
 
 
 def edit_callback(accessions):
@@ -896,7 +917,7 @@ class VoucherPresenter(editor.GenericEditorPresenter):
         super(VoucherPresenter, self).__init__(model, view)
         self.parent_ref = weakref.ref(parent)
         self.session = session
-        self.__dirty = False
+        self._dirty = False
         #self.refresh_view()
         self.view.connect('voucher_add_button', 'clicked', self.on_add_clicked)
         self.view.connect('voucher_remove_button', 'clicked',
@@ -948,7 +969,7 @@ class VoucherPresenter(editor.GenericEditorPresenter):
         treeview.set_model(model)
 
     def dirty(self):
-        return self.__dirty
+        return self._dirty
 
     def on_cell_edited(self, cell, path, new_text, data):
         treeview, prop = data
@@ -957,7 +978,7 @@ class VoucherPresenter(editor.GenericEditorPresenter):
         if getattr(voucher, prop) == new_text:
             return  # didn't change
         setattr(voucher, prop, utils.utf8(new_text))
-        self.__dirty = True
+        self._dirty = True
         self.parent_ref().refresh_sensitivity()
 
     def on_remove_clicked(self, button, parent=False):
@@ -969,7 +990,7 @@ class VoucherPresenter(editor.GenericEditorPresenter):
         voucher = model[treeiter][0]
         voucher.accession = None
         model.remove(treeiter)
-        self.__dirty = True
+        self._dirty = True
         self.parent_ref().refresh_sensitivity()
 
     def on_add_clicked(self, button, parent=False):
@@ -1272,18 +1293,10 @@ class VerificationPresenter(editor.GenericEditorPresenter):
             ## we come here when we are adding a Verification, and the
             ## Verification wants to refer to a new taxon.
 
-            from bauble.plugins.plants.species import SpeciesEditor
-            editor = SpeciesEditor(parent=self.presenter().view.get_window())
-            if editor.start():
-                logger.debug('new taxon added from within VerificationBox')
-                # add the new taxon to the session and start using it
-                self.presenter().session.add(editor.model)
-                taxon_entry.set_text("%s" % editor.model)
-                self.presenter().remove_problem(
-                    hash(taxon_entry.get_name()), None)
-                self.set_model_attr('species', editor.model)
-                logger.debug('is VerificationPresenter dirty? %s' %
-                             self.presenter()._dirty)
+            generic_taxon_add_action(
+                self.model, self.presenter().view, self.presenter(),
+                self.presenter().parent_ref(),
+                button, taxon_entry)
 
 
 class SourcePresenter(editor.GenericEditorPresenter):
@@ -1301,7 +1314,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
         super(SourcePresenter, self).__init__(model, view)
         self.parent_ref = weakref.ref(parent)
         self.session = session
-        self.__dirty = False
+        self._dirty = False
 
         self.view.connect('new_source_button', 'clicked',
                           self.on_new_source_button_clicked)
@@ -1387,7 +1400,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
                 self.source.sources_code = utils.utf8(text)
             else:
                 self.source.sources_code = None
-            self.__dirty = True
+            self._dirty = True
             self.refresh_sensitivity()
         self.view.connect('sources_code_entry', 'changed', on_changed)
 
@@ -1425,7 +1438,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
         self.populate_source_combo(active)
 
     def dirty(self):
-        return self.__dirty or self.source_prop_presenter.dirty() or \
+        return self._dirty or self.source_prop_presenter.dirty() or \
             self.prop_chooser_presenter.dirty() or \
             self.collection_presenter.dirty()
 
@@ -1439,7 +1452,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
         self.view.widgets.source_coll_expander.props.sensitive = True
         self.view.widgets.source_coll_add_button.props.sensitive = False
         self.view.widgets.source_coll_remove_button.props.sensitive = True
-        self.__dirty = True
+        self._dirty = True
         self.refresh_sensitivity()
 
     def on_coll_remove_button_clicked(self, *args):
@@ -1448,7 +1461,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
         self.view.widgets.source_coll_expander.props.sensitive = False
         self.view.widgets.source_coll_add_button.props.sensitive = True
         self.view.widgets.source_coll_remove_button.props.sensitive = False
-        self.__dirty = True
+        self._dirty = True
         self.refresh_sensitivity()
 
     def on_prop_add_button_clicked(self, *args):
@@ -1457,7 +1470,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
         self.view.widgets.source_prop_expander.props.sensitive = True
         self.view.widgets.source_prop_add_button.props.sensitive = False
         self.view.widgets.source_prop_remove_button.props.sensitive = True
-        self.__dirty = True
+        self._dirty = True
         self.refresh_sensitivity()
 
     def on_prop_remove_button_clicked(self, *args):
@@ -1466,7 +1479,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
         self.view.widgets.source_prop_expander.props.sensitive = False
         self.view.widgets.source_prop_add_button.props.sensitive = True
         self.view.widgets.source_prop_remove_button.props.sensitive = False
-        self.__dirty = True
+        self._dirty = True
         self.refresh_sensitivity()
 
     def on_new_source_button_clicked(self, *args):
@@ -1580,7 +1593,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
             # don't set the model as dirty if this is called during
             # populate_source_combo
             if not combo._populate:
-                self.__dirty = True
+                self._dirty = True
                 self.refresh_sensitivity()
             return True
         self.view.connect(completion, 'match-selected', on_match_select)
@@ -1651,7 +1664,7 @@ class AccessionEditorPresenter(editor.GenericEditorPresenter):
         ;param view: an instance of AccessionEditorView
         '''
         super(AccessionEditorPresenter, self).__init__(model, view)
-        self.__dirty = False
+        self._dirty = False
         self.session = object_session(model)
         self._original_code = self.model.code
         self.current_source_box = None
@@ -1659,7 +1672,7 @@ class AccessionEditorPresenter(editor.GenericEditorPresenter):
         if not model.code:
             model.code = get_next_code()
             if self.model.species:
-                self.__dirty = True
+                self._dirty = True
 
         self.ver_presenter = VerificationPresenter(self, self.model, self.view,
                                                    self.session)
@@ -1796,6 +1809,13 @@ class AccessionEditorPresenter(editor.GenericEditorPresenter):
             self.view.widgets.intended2_loc_comboentry,
             'intended2_location')
 
+        ## add a taxon implies setting the acc_species_entry
+        self.view.connect(
+            self.view.widgets.acc_taxon_add_button, 'clicked',
+            lambda b, w: generic_taxon_add_action(
+                self.model, self.view, self, self, b, w),
+            self.view.widgets.acc_species_entry)
+
         self.assign_simple_handler(
             'acc_quantity_recvd_entry', 'quantity_recvd')
         self.assign_simple_handler('acc_id_qual_combo', 'id_qual',
@@ -1879,7 +1899,7 @@ class AccessionEditorPresenter(editor.GenericEditorPresenter):
         presenters = [self.ver_presenter, self.voucher_presenter,
                       self.notes_presenter, self.source_presenter]
         dirty_kids = [p.dirty() for p in presenters]
-        return self.__dirty or True in dirty_kids
+        return self._dirty or True in dirty_kids
 
     def on_recvd_type_comboentry_changed(self, combo, *args):
         """
@@ -1958,7 +1978,7 @@ class AccessionEditorPresenter(editor.GenericEditorPresenter):
         #debug('set_model_attr(%s, %s)' % (field, value))
         super(AccessionEditorPresenter, self).set_model_attr(field, value,
                                                              validator)
-        self.__dirty = True
+        self._dirty = True
         # TODO: add a test to make sure that the change notifiers are
         # called in the expected order
         prov_sensitive = True
