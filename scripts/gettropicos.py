@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2008-2010 Brett Adams
@@ -18,7 +19,22 @@
 # You should have received a copy of the GNU General Public License
 # along with bauble.classic. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module doesn't do anything other than create a placeholder for
-other Bauble plugins
-"""
+
+def getTropicos(epithet):
+    import requests
+    r = requests.post(
+        "http://tropicos.org/NameMatching.aspx",
+        data={"__EVENTTARGET": "",
+              "__EVENTARGUMENT": "",
+              "ctl00$MainContentPlaceHolder$ctl01": "Match Names"},
+        files={"ctl00$MainContentPlaceHolder$fileUploadControl":
+               "FullNameNoAuthors\n%s" % epithet})
+    header, row = [i.split('\t') for i in r.text.strip().split("\n")]
+    return dict((k[6:].strip(), v.strip())
+                for (k, v) in zip(header, row)
+                if k.startswith('Output') and not k == 'OutputHowMatched')
+
+
+if __name__ == '__main__':
+    import sys
+    print getTropicos(' '.join(sys.argv[1:]))

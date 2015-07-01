@@ -27,7 +27,7 @@ import logging
 logger = logging.getLogger(__name__)
 #logger.setLevel(logging.DEBUG)
 
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from sqlalchemy import Unicode
 from sqlalchemy import UnicodeText
 from sqlalchemy.orm import class_mapper
@@ -180,6 +180,24 @@ class IdentExpressionToken(object):
                 return q.filter(a.any())
         clause = lambda x: self.operation(a, x)
         return q.filter(clause(self.operands[1].express()))
+
+    def needs_join(self, env):
+        return [self.operands[0].needs_join(env)]
+
+
+class BetweenExpressionAction(object):
+    def __init__(self, t):
+        self.operands = t[0][0::2]  # every second object is an operand
+
+    def __repr__(self):
+        return "(BETWEEN %s %s %s)" % tuple(self.operands)
+
+    def evaluate(self, env):
+        q, a = self.operands[0].evaluate(env)
+        clause_low = lambda low: low <= a
+        clause_high = lambda high: a <= high
+        return q.filter(and_(clause_low(self.operands[1].express()),
+                             clause_high(self.operands[2].express())))
 
     def needs_join(self, env):
         return [self.operands[0].needs_join(env)]
@@ -412,10 +430,12 @@ class ValueListAction(object):
         return result
 
 
-from pyparsing import (Word, alphas8bit, removeQuotes, delimitedList, Regex,
-                       OneOrMore, oneOf, alphas, alphanums, Group, Literal,
-                       stringEnd, Keyword, quotedString,
-                       infixNotation, opAssoc, Forward)
+from pyparsing import (
+    Word, alphas8bit, removeQuotes, delimitedList, Regex,
+    OneOrMore, oneOf, alphas, alphanums, Group, Literal,
+    CaselessLiteral, WordStart, WordEnd,
+    stringEnd, Keyword, quotedString,
+    infixNotation, opAssoc, Forward)
 
 
 class SearchParser(object):
@@ -457,9 +477,10 @@ class SearchParser(object):
         | (domain + binop + domain_values + stringEnd)
         ).setParseAction(DomainExpressionAction)('domain_expression')
 
-    AND_ = Literal("AND") | Literal("&&")
-    OR_ = Literal("OR") | Literal("||")
-    NOT_ = Literal("NOT") | Literal('!')
+    AND_ = WordStart() + (CaselessLiteral("AND") | Literal("&&")) + WordEnd()
+    OR_ = WordStart() + (CaselessLiteral("OR") | Literal("||")) + WordEnd()
+    NOT_ = WordStart() + (CaselessLiteral("NOT") | Literal('!')) + WordEnd()
+    BETWEEN_ = WordStart() + CaselessLiteral("BETWEEN") + WordEnd()
 
     query_expression = Forward()('filter')
     identifier = Group(delimitedList(Word(alphas+'_', alphanums+'_'),
@@ -469,8 +490,11 @@ class SearchParser(object):
         | (
             Literal('(') + query_expression + Literal(')')
         ).setParseAction(ParenthesisedQuery))
+    between_expression = Group(
+        identifier + BETWEEN_ + value + AND_ + value
+        ).setParseAction(BetweenExpressionAction)
     query_expression << infixNotation(
-        ident_expression,
+        (ident_expression | between_expression),
         [(NOT_, 1, opAssoc.RIGHT, SearchNotAction),
          (AND_, 2, opAssoc.LEFT,  SearchAndAction),
          (OR_,  2, opAssoc.LEFT,  SearchOrAction)])
