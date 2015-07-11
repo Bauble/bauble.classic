@@ -191,25 +191,32 @@ class PlantSearch(SearchStrategy):
         super(PlantSearch, self).__init__()
 
     def search(self, text, session):
-        # TODO: this doesn't support search like plant=2009.0039.1 or
-        # plant where accession.code=2009.0039
+        """returns a result if the text looks like a quoted plant code
 
-        # TODO: searches like 2009.0039.% or * would be handy
-        r1 = super(PlantSearch, self).search(text, session)
+        special search strategy, can't be obtained in MapperSearch
+        """
+
+        if text[0] == text[-1] and text[0] in ['"', "'"]:
+            text = text[1:-1]
+        else:
+            logger.debug("text is not quoted, so strategy does not apply")
+            return []
         delimiter = Plant.get_delimiter()
         if delimiter not in text:
+            logger.debug("delimiter not found, can't split the code")
             return []
         acc_code, plant_code = text.rsplit(delimiter, 1)
-        query = session.query(Plant)
-        from bauble.plugins.garden import Accession
+        logger.debug("ac: %s, pl: %s" % (acc_code, plant_code))
+
         try:
-            q = query.join('accession').\
-                filter(and_(Accession.code == acc_code,
-                            Plant.code == plant_code))
+            from bauble.plugins.garden import Accession
+            query = session.query(Plant).filter(
+                Plant.code == unicode(plant_code)).join(Accession).filter(
+                Accession.code == unicode(acc_code))
+            return query.all()
         except Exception, e:
-            logger.debug(e)
+            logger.debug("%s %s" % (e.__class__.name, e))
             return []
-        return q.all()
 
 
 # TODO: what would happen if the PlantRemove.plant_id and PlantNote.plant_id
@@ -729,9 +736,10 @@ class PlantEditorPresenter(GenericEditorPresenter):
                           self.on_loc_button_clicked, 'edit')
 
     def dirty(self):
-        return self.pictures_presenter.dirty() or \
-            self.notes_presenter.dirty() or \
-            self.prop_presenter.dirty() or self._dirty
+        return (self.pictures_presenter.dirty() or
+                self.notes_presenter.dirty() or
+                self.prop_presenter.dirty() or
+                self._dirty)
 
     def on_date_entry_changed(self, entry, *args):
         self.change.date = entry.props.text

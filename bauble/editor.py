@@ -1097,31 +1097,31 @@ class NoteBox(gtk.HBox):
 
 class PictureBox(NoteBox):
     glade_ui = 'pictures.glade'
+    last_folder = '.'
 
     def __init__(self, presenter, model=None):
         super(PictureBox, self).__init__(presenter, model)
         utils.set_widget_value(self.widgets.category_comboentry,
                                u'<picture>')
         self.presenter._dirty = False
-        self.last_folder = '.'
 
         self.widgets.picture_button.connect(
             "clicked", self.on_activate_browse_button)
 
-    def set_content(self, filename):
+    def set_content(self, basename):
         for w in list(self.widgets.picture_button.children()):
             w.destroy()
-        if filename is not None:
+        if basename is not None:
             im = gtk.Image()
             try:
                 thumbname = os.path.join(
-                    prefs.prefs[prefs.picture_root_pref], 'thumbs', filename)
+                    prefs.prefs[prefs.picture_root_pref], 'thumbs', basename)
+                filename = os.path.join(
+                    prefs.prefs[prefs.picture_root_pref], basename)
                 if os.path.isfile(thumbname):
                     pixbuf = gtk.gdk.pixbuf_new_from_file(thumbname)
                 else:
-                    fullbuf = gtk.gdk.pixbuf_new_from_file(
-                        os.path.join(prefs.prefs[prefs.picture_root_pref],
-                                     'thumbs', filename))
+                    fullbuf = gtk.gdk.pixbuf_new_from_file(filename)
                     scale_x = fullbuf.get_width() / 400.0
                     scale_y = fullbuf.get_height() / 400.0
                     scale = max(scale_x, scale_y, 1)
@@ -1132,8 +1132,8 @@ class PictureBox(NoteBox):
                 im.set_from_pixbuf(pixbuf)
             except glib.GError, e:
                 logger.debug("picture %s caused glib.GError %s" %
-                             (filename, e))
-                label = _('picture file %s not found.') % filename
+                             (basename, e))
+                label = _('picture file %s not found.') % basename
                 im = gtk.Label()
                 im.set_text(label)
             except Exception, e:
@@ -1154,6 +1154,7 @@ class PictureBox(NoteBox):
             buttons=(gtk.STOCK_OK, gtk.RESPONSE_ACCEPT,
                      gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
         try:
+            print 'about to set current folder', self.last_folder
             fileChooserDialog.set_current_folder(self.last_folder)
             fileChooserDialog.run()
             filename = fileChooserDialog.get_filename()
@@ -1168,7 +1169,8 @@ class PictureBox(NoteBox):
                 from PIL import Image
                 im = Image.open(filename)
                 im.thumbnail((400, 400))
-                self.last_folder, basename = os.path.split(filename)
+                PictureBox.last_folder, basename = os.path.split(filename)
+                print 'new current folder is: ', self.last_folder
                 full_dest_path = os.path.join(
                     prefs.prefs[prefs.picture_root_pref], 'thumbs', basename)
                 logger.debug('copying %s to %s' % (filename, full_dest_path))

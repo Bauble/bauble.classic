@@ -31,7 +31,8 @@ import bauble.utils as utils
 import bauble.pluginmgr as pluginmgr
 from bauble.view import SearchView
 from bauble.plugins.garden.accession import AccessionEditor, \
-    Accession, AccessionInfoBox, acc_context_menu, acc_markup_func
+    Accession, AccessionInfoBox, \
+    acc_context_menu, acc_markup_func
 from bauble.plugins.garden.location import LocationEditor, \
     Location, LocationInfoBox, loc_context_menu, loc_markup_func
 from bauble.plugins.garden.plant import PlantEditor, \
@@ -85,7 +86,8 @@ class GardenPlugin(pluginmgr.Plugin):
                                            markup_func=loc_markup_func)
 
         mapper_search.add_meta(('plant', 'plants'), Plant, ['code'])
-        search.add_strategy(PlantSearch)
+        search.add_strategy(PlantSearch)  # special search value strategy
+        #search.add_strategy(SpeciesSearch)  # special search value strategy
         SearchView.view_meta[Plant].set(infobox=PlantInfoBox,
                                         context_menu=plant_context_menu,
                                         markup_func=plant_markup_func)

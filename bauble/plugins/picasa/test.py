@@ -1,5 +1,25 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2005,2006,2007,2008,2009 Brett Adams <brett@belizebotanic.org>
+# Copyright (c) 2012-2015 Mario Frasca <mario@anche.no>
+#
+# This file is part of bauble.classic.
+#
+# bauble.classic is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# bauble.classic is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with bauble.classic. If not, see <http://www.gnu.org/licenses/>.
+
 import os
-from nose import *
+from nose import SkipTest
 
 import gtk
 
@@ -26,7 +46,6 @@ class PicasaTests(BaubleTestCase):
     def __init__(self, *args):
         super(PicasaTests, self).__init__(*args)
 
-
     def test_photo_cache(self):
         """
         Test bauble.plugins.picasa.PhotoCache
@@ -41,7 +60,6 @@ class PicasaTests(BaubleTestCase):
         cache.remove(photoid)
         self.assert_(not cache[photoid])
 
-
 #     def test_populate_iconview(self):
 #         import gdata.photos.service
 #         user = u''
@@ -52,7 +70,6 @@ class PicasaTests(BaubleTestCase):
 #         gd_client.SetClientLoginToken(token)
 #         picasa.populate_iconview(gd_client, iconview=None,
 #                                  tag='Maxillaria elatior')
-
 
     def test_get_auth_token(self):
         """
@@ -65,7 +82,6 @@ class PicasaTests(BaubleTestCase):
         token = picasa.get_auth_token(user, passwd)
         self.assert_(token)
 
-
     def test_update_meta(self):
         """
         Test bauble.plugins.picasa.update_meta() function.
@@ -75,14 +91,13 @@ class PicasaTests(BaubleTestCase):
         album = u'album'
         token = u'token'
         picasa.update_meta(email=u'email', album=u'album', token=u'token')
-        self.assert_(email==meta.get_default(picasa.PICASA_EMAIL_KEY).value)
-        self.assert_(album==meta.get_default(picasa.PICASA_ALBUM_KEY).value)
-        self.assert_(token==meta.get_default(picasa.PICASA_TOKEN_KEY).value)
+        self.assert_(email == meta.get_default(picasa.PICASA_EMAIL_KEY).value)
+        self.assert_(album == meta.get_default(picasa.PICASA_ALBUM_KEY).value)
+        self.assert_(token == meta.get_default(picasa.PICASA_TOKEN_KEY).value)
 
         album2 = u'album2'
         picasa.update_meta(album=album2)
-        self.assert_(album2==meta.get_default(picasa.PICASA_ALBUM_KEY).value)
-
+        self.assert_(album2 == meta.get_default(picasa.PICASA_ALBUM_KEY).value)
 
     def _get_settings(self):
         """
@@ -91,12 +106,12 @@ class PicasaTests(BaubleTestCase):
         d = picasa.PicasaSettingsDialog()
         return d.run()
 
-
-    def itest_infopage(self):
+    def test_infopage(self):
+        raise SkipTest('Not Implemented')
         from bauble.plugins.plants import Family, Genus, Species
         email = ''
         passwd = ''
-        album='Plants'
+        album = 'Plants'
         if email:
             token = picasa.get_auth_token(email, passwd)
             picasa.update_meta(email=email, album=album, token=token)
@@ -113,12 +128,11 @@ class PicasaTests(BaubleTestCase):
         self.dialog.show_all()
         self.dialog.run()
 
-
-
-    def itest_get_photo_feed(self):
+    def test_get_photo_feed(self):
         """
         Interactively test picasa.get_photo_feed()
         """
+        raise SkipTest('Not Implemented')
         if self._get_settings() != gtk.RESPONSE_OK:
             return
 
