@@ -194,11 +194,11 @@ class History(history_base):
     """
     __tablename__ = 'history'
     id = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
-    table_name = sa.Column(sa.String, nullable=False)
+    table_name = sa.Column(sa.Text, nullable=False)
     table_id = sa.Column(sa.Integer, nullable=False, autoincrement=False)
-    values = sa.Column(sa.String, nullable=False)
-    operation = sa.Column(sa.String, nullable=False)
-    user = sa.Column(sa.String)
+    values = sa.Column(sa.Text, nullable=False)
+    operation = sa.Column(sa.Text, nullable=False)
+    user = sa.Column(sa.Text)
     timestamp = sa.Column(types.DateTime, nullable=False)
 
 
@@ -468,7 +468,7 @@ class DefiningPictures:
                 logger.warning("picture %s caused Exception %s" %
                                (filename, e))
                 im = gtk.Label()
-                im.set_text(_("%s" % e))
+                im.set_text(e)
             result.append(im)
         return result
 

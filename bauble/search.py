@@ -44,6 +44,7 @@ from bauble.i18n import _
 def search(text, session=None):
     results = set()
     for strategy in _search_strategies.values():
+        logger.debug("applying search strategy %s" % strategy)
         results.update(strategy.search(text, session))
     return list(results)
 
@@ -382,6 +383,7 @@ class DomainExpressionAction(object):
 class ValueListAction(object):
 
     def __init__(self, t):
+        logger.debug(t)
         self.values = t[0]
 
     def __repr__(self):
@@ -414,15 +416,16 @@ class ValueListAction(object):
             # to avoid the "Unicode type received non-unicode bind param"
 
             def unicol(col, v):
-                mapper = class_mapper(cls)
-                if isinstance(mapper.c[col].type, (Unicode, UnicodeText)):
+                table = class_mapper(cls)
+                if isinstance(table.c[col].type, (Unicode, UnicodeText)):
                     return unicode(v)
                 else:
                     return v
 
-            mapper = class_mapper(cls)
-            q = q.filter(or_(*[like(mapper, c, unicol(c, v))
-                               for c, v in column_cross_value]))
+            table = class_mapper(cls)
+            q = q.filter(or_(*[like(table, c, unicol(c, v))
+                               for c, v in column_cross_value
+                               if not isinstance(c, tuple)]))
             result.update(q.all())
 
         return result
@@ -445,7 +448,7 @@ class SearchParser(object):
         ).setParseAction(NumericToken)('number')
     unquoted_string = Word(alphanums + alphas8bit + '%.-_*;:')
     string_value = (
-        unquoted_string | quotedString.setParseAction(removeQuotes)
+        quotedString.setParseAction(removeQuotes) | unquoted_string
         ).setParseAction(StringToken)('string')
 
     none_token = Literal('None').setParseAction(NoneToken)
@@ -569,6 +572,9 @@ class MapperSearch(SearchStrategy):
                            search by default
         """
 
+        logger.debug('%s.add_meta(%s, %s, %s)' %
+                     (self, domain, cls, properties))
+
         check(isinstance(properties, list),
               _('MapperSearch.add_meta(): '
                 'default_columns argument must be list'))
@@ -580,7 +586,7 @@ class MapperSearch(SearchStrategy):
             for d in domain[1:]:
                 self._shorthand[d] = domain[0]
         else:
-            self._domains[d] = cls, properties
+            self._domains[domain] = cls, properties
         self._properties[cls] = properties
 
     @classmethod

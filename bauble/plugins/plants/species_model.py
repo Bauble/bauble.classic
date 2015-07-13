@@ -146,7 +146,7 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         '''
 
         cites_notes = [i.note for i in self.notes
-                       if i.category.upper() == u'CITES']
+                       if i.category and i.category.upper() == u'CITES']
         if not cites_notes:
             return self.genus.cites
         return cites_notes[0]
@@ -171,7 +171,7 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
          'NE': _('Not Evaluated (NE)')}
 
         notes = [i.note for i in self.notes
-                 if i.category.upper() == u'IUCN']
+                 if i.category and i.category.upper() == u'IUCN']
         return (notes + ['DD'])[0]
 
     @property
@@ -603,6 +603,10 @@ class VernacularName(db.Base, db.Serializable):
         return session.query(cls).filter(
             cls.species == sp,
             cls.language == keys['language']).all()
+
+    @property
+    def pictures(self):
+        return self.species.pictures
 
 
 class DefaultVernacularName(db.Base):
