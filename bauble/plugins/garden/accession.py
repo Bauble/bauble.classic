@@ -500,12 +500,11 @@ class Accession(db.Base, db.Serializable):
             information
 
             Possible values:
-                * union of first columns of
-                wild_prov_status_values,
-                purchase_prov_status_values,
-                cultivated_prov_status_values
+                * union of first columns of wild_prov_status_values,
+                * purchase_prov_status_values,
+                * cultivated_prov_status_values
 
-        *date*: :class:`bauble.types.Date`
+        *date_accd*: :class:`bauble.types.Date`
             the date this accession was accessioned
 
 

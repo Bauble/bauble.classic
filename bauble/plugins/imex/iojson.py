@@ -26,12 +26,13 @@ logger = logging.getLogger(__name__)
 from bauble.i18n import _
 import bauble.utils as utils
 import bauble.db as db
-from bauble.plugins.plants import Familia, Genus, Species, VernacularName
-from bauble.plugins.garden.plant import Plant
-from bauble.plugins.garden.accession import Accession, AccessionNote
-from bauble.plugins.garden.location import Location
+from bauble.plugins.plants import (Familia, Genus, Species, VernacularName)
+from bauble.plugins.garden.plant import (Plant, PlantNote)
+from bauble.plugins.garden.accession import (Accession, AccessionNote)
+from bauble.plugins.garden.location import (Location)
 import bauble.task
 import bauble.editor as editor
+from bauble.error import check, CheckConditionError
 import bauble.paths as paths
 import json
 import bauble.pluginmgr as pluginmgr
@@ -63,11 +64,28 @@ def serializedatetime(obj):
     elif isinstance(obj, datetime.datetime):
         if obj.utcoffset() is not None:
             obj = obj - obj.utcoffset()
-    millis = int(
-        calendar.timegm(obj.timetuple()) * 1000 +
-        obj.microsecond / 1000
-    )
+    millis = calendar.timegm(obj.timetuple()) * 1000
+    try:
+        millis += int(obj.microsecond / 1000)
+    except AttributeError:
+        pass
     return {'__class__': 'datetime', 'millis': millis}
+
+
+class TreeStoreFlattener(object):
+
+    def __call__(self, model):
+        self.result = []
+        return self.flatten(model, model.iter_children(None))
+
+    def flatten(self, model, iter):
+        while iter:
+            self.result.append(model.get_value(iter, 0))
+            self.flatten(model, model.iter_children(iter))
+            iter = model.iter_next(iter)
+        return self.result
+
+tree_store_flatten = TreeStoreFlattener()
 
 
 class ExportToJson(editor.GenericEditorView):
@@ -80,7 +98,7 @@ class ExportToJson(editor.GenericEditorView):
     def radio_button_pushed(self, widget, group):
         name = gtk.Buildable.get_name(widget).split('_')[1]
         self._choices[group] = name
-        print self._choices
+        logger.debug("selected %s for group %s" % (name, group))
 
     def __init__(self, parent=None):
         filename = os.path.join(paths.lib_dir(), 'plugins', 'imex',
@@ -97,13 +115,79 @@ class ExportToJson(editor.GenericEditorView):
         return self.widgets.select_export_dialog
 
     def start(self):
-        return self.get_window().run() == gtk.RESPONSE_OK
+        return self.get_window().run()
 
     def get_filename(self):
         return self.widgets.filename.get_text()
 
     def get_objects(self):
-        return []
+        if self._choices['based_on'] == 'selection':
+            class EmptySelectionException(Exception):
+                pass
+            from bauble.view import SearchView
+            view = bauble.gui.get_view()
+            try:
+                check(isinstance(view, SearchView))
+                model = view.results_view.get_model()
+                check(model is not None)
+            except CheckConditionError:
+                utils.message_dialog(_('Search for something first.'))
+                return
+
+            logger.info(tree_store_flatten(model))
+            return [row[0] for row in model]
+
+        ## export disregarding selection
+        s = db.Session()
+        result = []
+        if self._choices['based_on'] == 'plants':
+            plants = s.query(Plant).order_by(Plant.code).join(
+                Accession).order_by(Accession.code).all()
+            plantnotes = s.query(PlantNote).all()  # all notes, too
+            ## only used locations and accessions
+            locations = s.query(Location).filter(
+                Location.id.in_([j.location_id for j in plants])).all()
+            accessions = s.query(Accession).filter(
+                Accession.id.in_([j.accession_id for j in plants])).order_by(
+                Accession.code).all()
+            ## notes are linked in opposite direction
+            accessionnotes = s.query(AccessionNote).filter(
+                AccessionNote.accession_id.in_(
+                    [j.id for j in accessions])).all()
+            # extend results with things not further used
+            result.extend(locations)
+            result.extend(plants)
+            result.extend(plantnotes)
+        elif self._choices['based_on'] == 'accessions':
+            accessions = s.query(Accession).order_by(
+                Accession.code).all()
+            accessionnotes = s.query(AccessionNote).all()  # all notes, too
+
+        ## now the taxonomy, based either on all species or on the ones used
+        if self._choices['based_on'] == 'taxa':
+            species = s.query(Species).order_by(
+                Species.sp).all()
+        else:
+            # prepend results with accession data
+            result = accessions + accessionnotes + result
+
+            species = s.query(Species).filter(
+                Species.id.in_([j.species_id for j in accessions])).order_by(
+                Species.sp).all()
+
+        ## and all used genera and families
+        genera = s.query(Genus).filter(
+            Genus.id.in_([j.genus_id for j in species])).order_by(
+            Genus.genus).all()
+        families = s.query(Familia).filter(
+            Familia.id.in_([j.family_id for j in genera])).order_by(
+            Familia.family).all()
+
+        ## prepend the result with the taxonomic information
+        result = families + genera + species + result
+
+        ## done, return the result
+        return result
 
 
 class JSONImporter(object):
@@ -174,7 +258,11 @@ class JSONExporter(object):
             filename = d.get_filename()
             objects = d.get_objects()
             if response != gtk.RESPONSE_OK or filename is None:
+                logger.info("bad response or no filename %s (%s) %s" %
+                            (response, gtk.RESPONSE_OK, filename))
                 return
+        logger.debug("will run with filename and objects: %s %s" %
+                     (filename, objects))
         self.run(filename, objects)
 
     def run(self, filename, objects=None):
