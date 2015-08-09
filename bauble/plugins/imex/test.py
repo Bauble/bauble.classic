@@ -389,6 +389,16 @@ class CSVTests2(ImexTestCase):
         pass
 
 
+class MockView:
+    def set_selection(self, a):
+        self.__selection = a
+
+    def get_selection(self):
+        return self.__selection
+
+mock_view = MockView()
+
+
 class JSONExportTests(BaubleTestCase):
 
     def setUp(self):
@@ -413,7 +423,8 @@ class JSONExportTests(BaubleTestCase):
     def test_writes_complete_database(self):
         "exporting without specifying what: export complete database"
 
-        exporter = JSONExporter()
+        mock_view.set_selection([])
+        exporter = JSONExporter(mock_view)
         exporter.start(self.temp_path)
         ## must still check content of generated file!
         result = json.load(open(self.temp_path))
@@ -426,49 +437,22 @@ class JSONExportTests(BaubleTestCase):
         self.assertEquals(len(species), 1)
         self.assertEquals(open(self.temp_path).read(),
                           """\
-[\n\
-    {\n\
-        "epithet": "Orchidaceae", \n\
-        "object": "taxon", \n\
-        "rank": "familia"\n\
-    }, \n\
-    {\n\
-        "epithet": "Myrtaceae", \n\
-        "object": "taxon", \n\
-        "rank": "familia"\n\
-    }, \n\
-    {\n\
-        "author": "R. Br.", \n\
-        "epithet": "Calopogon", \n\
-        "ht-epithet": "Orchidaceae", \n\
-        "ht-rank": "familia", \n\
-        "object": "taxon", \n\
-        "rank": "genus"\n\
-    }, \n\
-    {\n\
-        "author": "", \n\
-        "epithet": "Panisea", \n\
-        "ht-epithet": "Orchidaceae", \n\
-        "ht-rank": "familia", \n\
-        "object": "taxon", \n\
-        "rank": "genus"\n\
-    }, \n\
-    {\n\
-        "epithet": "tuberosus", \n\
-        "ht-epithet": "Calopogon", \n\
-        "ht-rank": "genus", \n\
-        "hybrid": false, \n\
-        "object": "taxon", \n\
-        "rank": "species"\n\
-    }\n\
-]""")
+[{"epithet": "Orchidaceae", "object": "taxon", "rank": "familia"},
+ {"epithet": "Myrtaceae", "object": "taxon", "rank": "familia"},
+ {"author": "R. Br.", "epithet": "Calopogon", "ht-epithet": "Orchidaceae", \
+"ht-rank": "familia", "object": "taxon", "rank": "genus"},
+ {"author": "", "epithet": "Panisea", "ht-epithet": "Orchidaceae", \
+"ht-rank": "familia", "object": "taxon", "rank": "genus"},
+ {"epithet": "tuberosus", "ht-epithet": "Calopogon", "ht-rank": "genus", \
+"hybrid": false, "object": "taxon", "rank": "species"}]""")
 
     def test_writes_full_taxonomic_info(self):
         "exporting one family: export full taxonomic information below family"
 
-        exporter = JSONExporter()
         selection = self.session.query(Family).filter(
             Family.family == u'Orchidaceae').all()
+        mock_view.set_selection(selection)
+        exporter = JSONExporter(mock_view)
         exporter.start(self.temp_path, selection)
         result = json.load(open(self.temp_path))
         self.assertEquals(len(result), 1)
@@ -478,9 +462,10 @@ class JSONExportTests(BaubleTestCase):
     def test_writes_partial_taxonomic_info(self):
         "exporting one genus: all species below genus"
 
-        exporter = JSONExporter()
         selection = self.session.query(Genus).filter(
             Genus.genus == u'Calopogon').all()
+        mock_view.set_selection(selection)
+        exporter = JSONExporter(mock_view)
         exporter.start(self.temp_path, selection)
         result = json.load(open(self.temp_path))
         self.assertEquals(len(result), 1)
@@ -493,10 +478,11 @@ class JSONExportTests(BaubleTestCase):
     def test_writes_partial_taxonomic_info_species(self):
         "exporting one genus: all species below species"
 
-        exporter = JSONExporter()
         selection = self.session.query(
             Species).filter(Species.sp == u'tuberosus').join(
             Genus).filter(Genus.genus == u"Calopogon").all()
+        mock_view.set_selection(selection)
+        exporter = JSONExporter(mock_view)
         exporter.start(self.temp_path, selection)
         result = json.load(open(self.temp_path))
         self.assertEquals(len(result), 1)

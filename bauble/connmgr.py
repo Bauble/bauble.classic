@@ -121,9 +121,6 @@ class ConnectionManager:
         Show the connection manager.
         """
         self.create_gui()
-        self.dialog.connect('response', self.on_dialog_response)
-        self.dialog.connect('close', self.on_dialog_close_or_delete)
-        self.dialog.connect('delete-event', self.on_dialog_close_or_delete)
         conn_list = prefs.prefs[bauble.conn_list_pref]
         if conn_list is None or len(conn_list.keys()) == 0:
             msg = _('You don\'t have any connections in your connection '
@@ -244,6 +241,7 @@ class ConnectionManager:
 
         glade_path = os.path.join(paths.lib_dir(), "connmgr.glade")
         self.widgets = utils.BuilderWidgets(glade_path)
+        self.builder = self.widgets._builder_
 
         self.dialog = self.widgets.main_dialog
         title = '%s %s' % ('Bauble', bauble.version)
@@ -254,10 +252,6 @@ class ConnectionManager:
         except Exception:
             logger.warning(_('Could not load icon from %s' % bauble.default_icon))
             logger.warning(traceback.format_exc())
-            # utils.message_details_dialog(_('Could not load icon from %s' % \
-            #                              bauble.default_icon),
-            #                              traceback.format_exc(),
-            #                              gtk.MESSAGE_ERROR)
 
         if bauble.gui is not None and bauble.gui.window is not None:
             self.dialog.set_transient_for(bauble.gui.window)
@@ -265,11 +259,9 @@ class ConnectionManager:
                 self.dialog.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
                 self.dialog.set_property('skip-taskbar-hint', False)
 
-        self.widgets.add_button.connect('clicked', self.on_add_button_clicked)
-        self.widgets.remove_button.connect('clicked',
-                                           self.on_remove_button_clicked)
+        self.builder.connect_signals(self)
 
-        # set the logo image manually, its hard to depend on glade to
+        # set the logo image manually, it's hard to depend on glade to
         # get this right since the image paths may change
         logo = self.widgets.logo_image
         logo_path = os.path.join(paths.lib_dir(), "images", "bauble_logo.png")

@@ -534,7 +534,6 @@ class UsersEditor(editor.GenericEditorView):
         self.connect('write_button', 'toggled', on_toggled, 'write')
         self.connect('admin_button', 'toggled', on_toggled, 'admin')
 
-
         # only superusers can toggle the admin flag
         stmt = "select rolname from pg_roles where rolsuper is true and rolname = '%s'" % current_user()
         r = db.engine.execute(stmt).fetchone()
@@ -543,11 +542,7 @@ class UsersEditor(editor.GenericEditorView):
         else:
             self.widgets.admin_button.props.sensitive = False
 
-
-        self.connect('pwd_button', 'clicked', self.on_pwd_button_clicked)
-        self.connect('add_button', 'clicked', self.on_add_button_clicked)
-        self.connect('remove_button', 'clicked', self.on_remove_button_clicked)
-
+        self.builder.connect_signals(self)
 
     def get_selected_user(self):
         """
@@ -556,7 +551,6 @@ class UsersEditor(editor.GenericEditorView):
         tree = self.widgets.users_tree
         path, column = tree.get_cursor()
         return tree.get_model()[path][0]
-
 
     new_user_message = _('Enter a user name')
 
@@ -569,15 +563,14 @@ class UsersEditor(editor.GenericEditorView):
         path = model.get_path(treeiter)
         tree.set_cursor(path, column, start_editing=True)
 
-
     def on_remove_button_clicked(self, button, *args):
         """
         """
         user = self.get_selected_user()
-        msg = _('Are you sure you want to remove user <b>%(name)s</b>?\n\n' \
-                    '<i>It is possible that this user could have permissions '\
-                    'on other databases not related to Bauble.</i>') \
-                    % {'name': user}
+        msg = _('Are you sure you want to remove user <b>%(name)s</b>?\n\n'
+                '<i>It is possible that this user could have permissions '
+                'on other databases not related to Bauble.</i>') \
+            % {'name': user}
         if not utils.yes_no_dialog(msg):
             return
 
