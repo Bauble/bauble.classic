@@ -238,6 +238,7 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
                     primaryjoin='Species.id==SpeciesSynonym.synonym_id',
                     cascade='all, delete-orphan', uselist=True)
 
+    ## VernacularName.species gets defined here too.
     vernacular_names = relation('VernacularName', cascade='all, delete-orphan',
                                 collection_class=VNList,
                                 backref=backref('species', uselist=False))
@@ -261,9 +262,6 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
 
     def __init__(self, *args, **kwargs):
         super(Species, self).__init__(*args, **kwargs)
-
-    def __repr__(self):
-        return Species.str(self)
 
     def __str__(self):
         '''
@@ -574,6 +572,10 @@ class VernacularName(db.Base, db.Serializable):
             return self.name
         else:
             return ''
+
+    def replacement(self):
+        'user wants the species, not just the name'
+        return self.species
 
     def as_dict(self):
         result = db.Serializable.as_dict(self)

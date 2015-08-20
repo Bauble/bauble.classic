@@ -31,7 +31,7 @@ from nose import SkipTest
 import bauble.utils as utils
 import bauble.db as db
 from bauble.plugins.plants.species import (
-    Species, VernacularName, SpeciesSynonym, SpeciesEditor,
+    Species, VernacularName, SpeciesSynonym, edit_species,
     DefaultVernacularName, SpeciesDistribution, SpeciesNote)
 from bauble.plugins.plants.family import (
     Family, FamilySynonym, FamilyEditor, FamilyNote)
@@ -528,10 +528,8 @@ class SpeciesTests(PlantTestCase):
         self.session.add(f)
         self.session.commit()
         sp = Species(genus=g, sp=u'sp')
-        e = SpeciesEditor(model=sp)
-        e.start()
-        del e
-        assert utils.gc_objects_by_type('SpeciesEditor') == [], \
+        edit_species(model=sp)
+        assert utils.gc_objects_by_type('SpeciesEditorMenuItem') == [], \
             'SpeciesEditor not deleted'
         assert utils.gc_objects_by_type('SpeciesEditorPresenter') == [], \
             'SpeciesEditorPresenter not deleted'
@@ -1199,3 +1197,50 @@ class ConservationStatus_test(PlantTestCase):
                            'epithet': u'fragrans'},
             create=False, update=False)
         self.assertEquals(obj.conservation, u'LC')
+
+
+class PresenterTest(PlantTestCase):
+    def test_canreeditobject(self):
+        from editor import GenericModelViewPresenterEditor
+        species = Species.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'genus',
+                           'ht-epithet': u'Paphiopedilum',
+                           'rank': 'species',
+                           'epithet': u'adductum'},
+            create=False, update=False)
+        presenter = GenericModelViewPresenterEditor(species, mock_view)
+        species.author = u'wrong'
+        presenter.commit_changes()
+        species.author = u'Asher'
+        presenter.commit_changes()
+
+    def test_cantinsertsametwice(self):
+        'while binomial name in view matches database item, warn user'
+
+        raise SkipTest('Not Implemented')
+        from species_editor import SpeciesEditorPresenter
+        model = Species.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'genus',
+                           'ht-epithet': u'Laelia',
+                           'rank': 'species',
+                           'epithet': u'lobata'},
+            create=False, update=False)
+        presenter = SpeciesEditorPresenter(model, mock_view)
+        presenter.on_text_entry_changed('sp_species_entry', 'grandiflora')
+        self.assertTrue(mock_view)
+
+
+class MockView:
+    def connect_signals(self, *args):
+        pass
+
+    def set_label(self, *args):
+        pass
+
+    def connect_after(self, *args):
+        pass
+
+
+mock_view = MockView()

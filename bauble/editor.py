@@ -29,12 +29,13 @@ import weakref
 
 import logging
 logger = logging.getLogger(__name__)
-#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.DEBUG)
 
 import glib
 import gtk
 import gobject
 
+from random import random
 import dateutil.parser as date_parser
 import lxml.etree as etree
 import pango
@@ -205,8 +206,10 @@ class GenericEditorView(object):
     """
     _tooltips = {}
 
-    def __init__(self, filename, parent=None):
+    def __init__(self, filename, parent=None, root_widget_name=None):
+        self.root_widget_name = root_widget_name
         builder = self.builder = utils.BuilderLoader.load(filename)
+        self.filename = filename
         self.widgets = utils.BuilderWidgets(builder)
         if parent:
             self.get_window().set_transient_for(parent)
@@ -224,11 +227,37 @@ class GenericEditorView(object):
                 logger.debug(_('Couldn\'t set the tooltip on widget '
                                '%(widget_name)s\n\n%(exception)s' % values))
 
-        window = self.get_window()
-        self.connect(window, 'delete-event', self.on_window_delete)
-        if isinstance(window, gtk.Dialog):
-            self.connect(window, 'close', self.on_dialog_close)
-            self.connect(window, 'response', self.on_dialog_response)
+        try:
+            window = self.get_window()
+        except:
+            window = None
+        if window is not None:
+            self.connect(window, 'delete-event', self.on_window_delete)
+            if isinstance(window, gtk.Dialog):
+                self.connect(window, 'close', self.on_dialog_close)
+                self.connect(window, 'response', self.on_dialog_response)
+
+    def set_label(self, widget_name, value):
+        getattr(self.widgets, widget_name).set_markup(value)
+
+    def connect_signals(self, target):
+        'connect all signals declared in the glade file'
+        if not hasattr(self, 'signals'):
+            from lxml import etree
+            doc = etree.parse(self.filename)
+            self.signals = doc.xpath('//signal')
+        for s in self.signals:
+            handler = getattr(target, s.get('handler'))
+            signaller = getattr(self.widgets, s.getparent().get('id'))
+            handler_id = signaller.connect(s.get('name'), handler)
+            self.__attached_signals.append((signaller, handler_id))
+
+    def set_accept_buttons_sensitive(self, sensitive):
+        '''
+        set the sensitivity of all the accept/ok buttons
+        '''
+        for wname in self.accept_buttons:
+            getattr(self.widgets, wname).set_sensitive(sensitive)
 
     def connect(self, obj, signal, callback, *args):
         """
@@ -282,6 +311,7 @@ class GenericEditorView(object):
         :meth:`GenericEditorView.connect` or
         :meth:`GenericEditorView.connect_after`
         """
+        logger.debug('GenericEditorView:disconnect_all')
         for obj, sid in self.__attached_signals:
             obj.disconnect(sid)
         del self.__attached_signals[:]
@@ -290,7 +320,16 @@ class GenericEditorView(object):
         """
         Return the top level window for view
         """
-        raise NotImplementedError
+        if self.root_widget_name is not None:
+            return getattr(self.widgets, self.root_widget_name)
+        else:
+            raise NotImplementedError
+
+    def get_widget_value(self, widget, index=0):
+        widget = (isinstance(widget, gtk.Widget)
+                  and widget
+                  or self.widgets[widget])
+        utils.set_widget_value(widget, index)
 
     def set_widget_value(self, widget, value, markup=False, default=None,
                          index=0):
@@ -301,7 +340,7 @@ class GenericEditorView(object):
         :param default: the default value to put in the widget if value is None
         :param index: the row index to use for those widgets who use a model
 
-        This method called bauble.utils.set_widget_value()
+        This method calls bauble.utils.set_widget_value()
         '''
         if isinstance(widget, gtk.Widget):
             utils.set_widget_value(widget, value, markup, default, index)
@@ -314,6 +353,7 @@ class GenericEditorView(object):
         Called if self.get_window() is a gtk.Dialog and it receives
         the response signal.
         '''
+        logger.debug('on_dialog_response')
         dialog.hide()
         self.response = response
         return response
@@ -323,6 +363,7 @@ class GenericEditorView(object):
         Called if self.get_window() is a gtk.Dialog and it receives
         the close signal.
         """
+        logger.debug('on_dialog_close')
         dialog.hide()
         return False
 
@@ -331,6 +372,7 @@ class GenericEditorView(object):
         Called when the window return by get_window() receives the
         delete event.
         """
+        logger.debug('on_window_delete')
         window.hide()
         return False
 
@@ -439,12 +481,14 @@ class GenericEditorView(object):
 
     def cleanup(self):
         """
-        Should be caled when after self.start() returns to cleanup
-        undo any changes on the view.
+        Should be called when after self.start() returns.
 
         By default all it does is call self.disconnect_all()
         """
         self.disconnect_all()
+
+    def mark_problem(self, widget):
+        pass
 
 
 class DontCommitException(Exception):
@@ -469,15 +513,138 @@ class GenericEditorPresenter(object):
     3. connect the signal handlers
     """
     problem_color = gtk.gdk.color_parse('#FFDCDF')
+    widget_to_field_map = {}
+    view_accept_buttons = []
 
-    def __init__(self, model, view):
+    PROBLEM_DUPLICATE = random()
+
+    def __init__(self, model, view, refresh_view=False):
         self.model = model
         self.view = view
         self.problems = set()
         self._dirty = False
+        self.session = object_session(model)
+        logger.debug("session, model, view = %s, %s, %s"
+                     % (self.session, model, view))
+        if view:
+            view.accept_buttons = self.view_accept_buttons
+            if model and refresh_view:
+                self.refresh_view()
+            view.connect_signals(self)
+
+    def refresh_view(self):
+        for widget, attr in self.widget_to_field_map.items():
+            value = getattr(self.model, attr) or ''
+            self.view.set_widget_value(widget, value)
+
+    def commit_changes(self):
+        '''
+        Commit the changes to self.session()
+        '''
+        objs = list(self.session)
+        try:
+            self.session.flush()
+        except Exception, e:
+            logger.warning(e)
+            self.session.rollback()
+            self.session.add_all(objs)
+            raise
+        return True
+
+    def __set_model_attr(self, attr, value):
+        if getattr(self.model, attr) != value:
+            setattr(self.model, attr, value)
+            self._dirty = True
+            self.view._dirty = True
+            self.view.set_accept_buttons_sensitive(not self.has_problems())
+
+    def __get_widget_attr(self, widget):
+        from types import StringTypes
+        widgetname = (isinstance(widget, StringTypes)
+                      and widget
+                      or gtk.Buildable.get_name(widget))
+        return self.widget_to_field_map.get(widgetname)
+
+    def on_textbuffer_changed(self, widget, value=None, attr=None):
+        "handle 'changed' signal on textbuffer widgets."
+
+        if attr is None:
+            attr = self.__get_widget_attr(widget)
+        if attr is None:
+            return
+        if value is None:
+            value = widget.props.text
+            value = value and utils.utf8(value) or None
+        logger.debug("on_text_entry_changed(%s, %s) - %s → %s"
+                     % (widget, attr, getattr(self.model, attr), value))
+        self.__set_model_attr(attr, value)
+
+    def on_text_entry_changed(self, widget, value=None):
+        "handle 'changed' signal on generic text entry widgets."
+
+        attr = self.__get_widget_attr(widget)
+        if attr is None:
+            return
+        if value is None:
+            value = widget.props.text
+            value = value and utils.utf8(value) or None
+        logger.debug("on_text_entry_changed(%s, %s) - %s → %s"
+                     % (widget, attr, getattr(self.model, attr), value))
+        self.__set_model_attr(attr, value)
+
+    def on_unique_text_entry_changed(self, widget, value=None):
+        "handle 'changed' signal on text entry widgets with an uniqueness "
+        "constraint."
+
+        attr = self.__get_widget_attr(widget)
+        if attr is None:
+            return
+        if value is None:
+            value = widget.props.text
+            value = value and utils.utf8(value) or None
+        if getattr(self.model, attr) == value:
+            return
+        logger.debug("on_unique_text_entry_changed(%s, %s) - %s → %s"
+                     % (widget, attr, getattr(self.model, attr), value))
+        ## check uniqueness
+        klass = self.model.__class__
+        k_attr = getattr(klass, attr)
+        q = self.session.query(klass)
+        q = q.filter(k_attr == value)
+        omonym = q.first()
+        if omonym is not None and omonym is not self.model:
+            self.add_problem(self.PROBLEM_DUPLICATE, widget)
+        ## ok
+        self.__set_model_attr(attr, value)
+
+    def on_datetime_entry_changed(self, widget, value=None):
+        "handle 'changed' signal on datetime entry widgets."
+
+        attr = self.__get_widget_attr(widget)
+        logger.debug("on_datetime_entry_changed(%s, %s)" % (widget, attr))
+        if value is None:
+            value = widget.props.text
+            value = value and utils.utf8(value) or None
+        self.__set_model_attr(attr, value)
+
+    def on_check_toggled(self, widget, value=None):
+        "handle toggled signal on check buttons"
+        attr = self.__get_widget_attr(widget)
+        if value is None:
+            value = widget.get_active()
+            widget.set_inconsistent(False)
+        self.__set_model_attr(attr, value)
+
+    def on_relation_entry_changed(self, widget, value=None):
+        attr = self.__get_widget_attr(widget)
+        logger.info(attr)
+
+    def dirty(self):
+        logger.info('calling deprecated "dirty". use "is_dirty".')
+        return self.is_dirty()
 
     # whether the presenter should be commited or not
-    def dirty(self):
+    def is_dirty(self):
         """is the presenter dirty?
 
         the presenter is dirty depending on whether it has changed anything
@@ -487,14 +654,18 @@ class GenericEditorPresenter(object):
         """
         return self._dirty
 
-    def has_problems(self, widget):
+    def has_problems(self, widget=None):
         """
         Return True/False depending on if widget has any problems
-        attached to it.
+        attached to it. if no widget is specified, result is True if
+        there is any problem at all.
         """
+        if widget is None:
+            return self.problems and True or False
         for p, w in self.problems:
             if widget == w:
                 return True
+        return False
 
     def clear_problems(self):
         """
@@ -546,14 +717,25 @@ class GenericEditorPresenter(object):
           whose background color should change to indicate a problem
           (default=None)
         """
+        ## map case list of widget to list of cases single widget.
         if isinstance(problem_widgets, (tuple, list)):
             map(lambda w: self.add_problem(problem_id, w), problem_widgets)
 
-        self.problems.add((problem_id, problem_widgets))
-        if problem_widgets:
-            problem_widgets.modify_bg(gtk.STATE_NORMAL, self.problem_color)
-            problem_widgets.modify_base(gtk.STATE_NORMAL, self.problem_color)
-            problem_widgets.queue_draw()
+        ## here single widget.
+        widget = problem_widgets
+        self.problems.add((problem_id, widget))
+        if not isinstance(widget, gtk.Widget):
+            try:
+                widget = getattr(self.view.widgets, widget)
+            except:
+                logger.info("can't get widget %s" % widget)
+        from types import StringTypes
+        if isinstance(widget, StringTypes):
+            self.view.mark_problem(widget)
+        elif widget is not None:
+            widget.modify_bg(gtk.STATE_NORMAL, self.problem_color)
+            widget.modify_base(gtk.STATE_NORMAL, self.problem_color)
+            widget.queue_draw()
 
     def init_enum_combo(self, widget_name, field):
         """
@@ -775,10 +957,9 @@ class GenericEditorPresenter(object):
 
     def start(self):
         """
-        Start the presenter.  This must be implemented by all classes
-        that subclass :class:`GenericEditorPresenter`
+        run the dialog associated to the view
         """
-        raise NotImplementedError
+        return self.view.get_window().run()
 
     def cleanup(self):
         """
@@ -791,19 +972,6 @@ class GenericEditorPresenter(object):
         self.clear_problems()
         if isinstance(self.view, GenericEditorView):
             self.view.cleanup()
-
-    def refresh_view(self):
-        """
-        Refresh the view with the model values.  This method should be
-        called before any signal handlers are configured on the view
-        so that the model isn't changed when the widget values are set.
-
-        Any classes that extend GenericEditorPresenter are required to
-        implement this method.
-        """
-        # TODO: should i provide a generic implementation of this method
-        # as long as widget_to_field_map exist
-        raise NotImplementedError
 
 
 class ChildPresenter(GenericEditorPresenter):
@@ -876,7 +1044,7 @@ class GenericModelViewPresenterEditor(object):
         '''
         objs = list(self.session)
         try:
-            self.session.commit()
+            self.session.flush()
         except Exception, e:
             logger.warning(e)
             self.session.rollback()
@@ -887,6 +1055,7 @@ class GenericModelViewPresenterEditor(object):
     def __del__(self):
         if hasattr(self, 'session'):
             # in case one of the check()'s fail in __init__
+            self.session.commit()
             self.session.close()
 
 

@@ -22,23 +22,25 @@
 #
 import datetime
 import os
-import sys
-import unittest
 import time
 
-from pyparsing import *
-from sqlalchemy import *
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+from sqlalchemy import (
+    Column, Integer)
 
 import bauble
 import bauble.db as db
 from bauble.btypes import Enum
-from bauble.search import SearchParser
 from bauble.test import BaubleTestCase, check_dupids
 import bauble.meta as meta
 
 """
 Tests for the main bauble module.
 """
+
 
 class BaubleTests(BaubleTestCase):
 
@@ -58,34 +60,31 @@ class BaubleTests(BaubleTestCase):
         db.engine.execute(table.insert(), {"id": 1})
         #debug(t.value)
 
-
     def test_date_type(self):
         """
         Test bauble.types.Date
         """
-        import bauble.prefs as prefs
         dt = bauble.btypes.Date()
 
         bauble.btypes.Date._dayfirst = False
         bauble.btypes.Date._yearfirst = False
         s = '12-30-2008'
         v = dt.process_bind_param(s, None)
-        self.assert_(v.month==12 and v.day==30 and v.year==2008,
+        self.assert_(v.month == 12 and v.day == 30 and v.year == 2008,
                      '%s == %s' % (v, s))
 
         bauble.btypes.Date._dayfirst = True
         bauble.btypes.Date._yearfirst = False
         s = '30-12-2008'
         v = dt.process_bind_param(s, None)
-        self.assert_(v.month==12 and v.day==30 and v.year==2008,
+        self.assert_(v.month == 12 and v.day == 30 and v.year == 2008,
                      '%s == %s' % (v, s))
-
 
         bauble.btypes.Date._dayfirst = False
         bauble.btypes.Date._yearfirst = True
         s = '2008-12-30'
         v = dt.process_bind_param(s, None)
-        self.assert_(v.month==12 and v.day==30 and v.year==2008,
+        self.assert_(v.month == 12 and v.day == 30 and v.year == 2008,
                      '%s == %s' % (v, s))
 
         # TODO: python-dateutil 1.4.1 has a bug where dayfirst=True,
@@ -101,7 +100,6 @@ class BaubleTests(BaubleTestCase):
         # debug(v)
         # self.assert_(v.month==12 and v.day==30 and v.year==2008,
         #              '%s == %s' % (v, s))
-
 
     def test_datetime_type(self):
         """
@@ -136,22 +134,19 @@ class BaubleTests(BaubleTestCase):
         v = dt.process_bind_param(s, None)
         self.assert_(v.isoformat(' ') == result)
 
-
-
     def test_base_table(self):
         """
         Test db.Base is setup correctly
         """
         m = meta.BaubleMeta(name=u'name', value=u'value')
-        table = m.__table__
         self.session.add(m)
         self.session.commit()
         m = self.session.query(meta.BaubleMeta).filter_by(name=u'name').first()
 
         # test that _created and _last_updated were created correctly
-        self.assert_(hasattr(m, '_created') \
+        self.assert_(hasattr(m, '_created')
                      and isinstance(m._created, datetime.datetime))
-        self.assert_(hasattr(m, '_last_updated') \
+        self.assert_(hasattr(m, '_last_updated')
                      and isinstance(m._last_updated, datetime.datetime))
 
         # test that created does not change when the value is updated
@@ -168,8 +163,6 @@ class BaubleTests(BaubleTestCase):
         self.assert_(m._created == created)
         self.assert_(isinstance(m._last_updated, datetime.datetime))
         self.assert_(m._last_updated != last_updated)
-
-
 
     def test_duplicate_ids(self):
         """
@@ -211,3 +204,31 @@ class HistoryTests(BaubleTestCase):
         assert history.table_name == 'family' and history.operation == 'delete'
 
 
+class MVPTests(BaubleTestCase):
+
+    def test_can_programmatically_connect_signals(self):
+        from bauble.editor import (
+            GenericEditorPresenter, GenericEditorView)
+
+        class HandlerDefiningPresenter(GenericEditorPresenter):
+            def on_tag_desc_textbuffer_changed(self, *args):
+                pass
+
+        model = db.History()
+        import tempfile
+        ntf = tempfile.NamedTemporaryFile()
+        ntf.write('''\
+<interface>
+  <requires lib="gtk+" version="2.24"/>
+  <!-- interface-naming-policy toplevel-contextual -->
+  <object class="GtkTextBuffer" id="tag_desc_textbuffer">
+    <signal name="changed" handler="on_tag_desc_textbuffer_changed" swapped="no"/>
+  </object>
+</interface>
+''')
+        ntf.flush()
+        fn = ntf.name
+        view = GenericEditorView(fn)
+        presenter = HandlerDefiningPresenter(model, view)
+        self.assertEquals(
+            len(presenter.view._GenericEditorView__attached_signals), 1)

@@ -166,9 +166,8 @@ def generic_taxon_add_action(model, view, presenter, top_presenter,
     its string representation into taxon_entry.
     """
 
-    from bauble.plugins.plants.species import SpeciesEditor
-    editor = SpeciesEditor(parent=view.get_window())
-    if editor.start():
+    from bauble.plugins.plants.species import edit_species
+    if edit_species(parent=view.get_window()):
         logger.debug('new taxon added from within VerificationBox')
         # add the new taxon to the session and start using it
         presenter.session.add(editor.model)
@@ -1626,7 +1625,7 @@ class SourcePresenter(editor.GenericEditorPresenter):
             active = combo.get_active_iter()
             if active:
                 detail = combo.get_model()[active][0]
-                # set the text value on the entry since its does all the
+                # set the text value on the entry since it does all the
                 # validation
                 if not detail:
                     combo.child.props.text = ''
@@ -1704,7 +1703,7 @@ class AccessionEditorPresenter(editor.GenericEditorPresenter):
         # TODO: refresh_view() will fire signal handlers for any
         # connected widgets and can be tricky with resetting values
         # that already exist in the model.  Although this usually
-        # isn't a problem its sloppy.  We need a better way to update
+        # isn't a problem, it is sloppy.  We need a better way to update
         # the widgets without firing signal handlers.
 
         # put model values in view before any handlers are connected
