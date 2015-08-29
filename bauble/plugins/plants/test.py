@@ -501,6 +501,86 @@ class GenusTests(PlantTestCase):
             'GenusEditorView not deleted'
 
 
+class GenusSynonymyTests(PlantTestCase):
+
+    def setUp(self):
+        super(GenusSynonymyTests, self).setUp()
+        f = self.session.query(Family).filter(Family.family == u'Orchidaceae'
+                                              ).one()
+        bu = Genus(family=f, genus=u'Bulbophyllum')  # accepted
+        zy = Genus(family=f, genus=u'Zygoglossum')  # synonym
+        bu.synonyms.append(zy)
+        self.session.add_all([f, bu, zy])
+        self.session.commit()
+
+    def test_forward_synonyms(self):
+        "a taxon has a list of synonyms"
+        bu = self.session.query(
+            Genus).filter(
+            Genus.genus == u'Bulbophyllum').one()
+        zy = self.session.query(
+            Genus).filter(
+            Genus.genus == u'Zygoglossum').one()
+        self.assertEquals(bu.synonyms, [zy])
+        self.assertEquals(zy.synonyms, [])
+
+    def test_backward_synonyms(self):
+        "synonymy is used to get the accepted taxon"
+        bu = self.session.query(
+            Genus).filter(
+            Genus.genus == u'Bulbophyllum').one()
+        zy = self.session.query(
+            Genus).filter(
+            Genus.genus == u'Zygoglossum').one()
+        self.assertEquals(zy.accepted, bu)
+        self.assertEquals(bu.accepted, None)
+
+    def test_synonymy_included_in_as_dict(self):
+        bu = self.session.query(
+            Genus).filter(
+            Genus.genus == u'Bulbophyllum').one()
+        zy = self.session.query(
+            Genus).filter(
+            Genus.genus == u'Zygoglossum').one()
+        self.assertTrue('accepted' not in bu.as_dict())
+        self.assertTrue('accepted' in zy.as_dict())
+        self.assertEquals(zy.as_dict()['accepted'],
+                          bu.as_dict(recurse=False))
+
+    def test_define_accepted(self):
+        # notice that same test should be also in Species and Family
+        bu = self.session.query(
+            Genus).filter(
+            Genus.genus == u'Bulbophyllum').one()
+        f = self.session.query(
+            Family).filter(
+            Family.family == u'Orchidaceae').one()
+        he = Genus(family=f, genus=u'Henosis')  # one more synonym
+        self.session.add(he)
+        self.session.commit()
+        self.assertEquals(len(bu.synonyms), 1)
+        self.assertFalse(he in bu.synonyms)
+        he.accepted = bu
+        self.assertEquals(len(bu.synonyms), 2)
+        self.assertTrue(he in bu.synonyms)
+
+    def test_can_redefine_accepted(self):
+        # Altamiranoa Rose used to refer to Villadia Rose for its accepted
+        # name, it is now updated to Sedum L.
+
+        ## T_0
+        claceae = Family(family=u'Crassulaceae')  # J. St.-Hil.
+        villa = Genus(family=claceae, genus=u'Villadia', author=u'Rose')
+        alta = Genus(family=claceae, genus=u'Altamiranoa', author=u'Rose')
+        alta.accepted = villa
+        self.session.add_all([claceae, alta, villa])
+        self.session.commit()
+
+        sedum = Genus(family=claceae, genus=u'Sedum', author=u'L.')
+        alta.accepted = sedum
+        self.session.commit()
+
+
 class SpeciesTests(PlantTestCase):
 
     def setUp(self):
@@ -884,7 +964,8 @@ class FromAndToDictTest(PlantTestCase):
         ses_families = self.session.query(Family).all()
         self.assertTrue(fab in ses_families)
 
-    def xtest_where_can_object_be_found_before_commit(self):  # disabled
+    def test_where_can_object_be_found_before_commit(self):  # disabled
+        raise SkipTest('Not Implemented')
         fab = Family.retrieve_or_create(
             self.session, {'rank': 'family',
                            'epithet': 'Fabaceae'})
@@ -1218,7 +1299,7 @@ class PresenterTest(PlantTestCase):
     def test_cantinsertsametwice(self):
         'while binomial name in view matches database item, warn user'
 
-        raise SkipTest('Not Implemented')
+        raise SkipTest('Not Implemented')  # presenter uses view internals
         from species_editor import SpeciesEditorPresenter
         model = Species.retrieve_or_create(
             self.session, {'object': 'taxon',
@@ -1229,10 +1310,12 @@ class PresenterTest(PlantTestCase):
             create=False, update=False)
         presenter = SpeciesEditorPresenter(model, mock_view)
         presenter.on_text_entry_changed('sp_species_entry', 'grandiflora')
-        self.assertTrue(mock_view)
 
 
 class MockView:
+    def __init__(self):
+        self.widgets = type('MockWidgets', (object, ), {})
+
     def connect_signals(self, *args):
         pass
 
@@ -1240,6 +1323,12 @@ class MockView:
         pass
 
     def connect_after(self, *args):
+        pass
+
+    def get_widget_value(self, *args):
+        pass
+
+    def connect(self, *args):
         pass
 
 

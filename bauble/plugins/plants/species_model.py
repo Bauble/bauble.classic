@@ -136,6 +136,7 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
     __mapper_args__ = {'order_by': ['sp', 'sp_author']}
 
     rank = 'species'
+    link_keys = ['accepted']
 
     @property
     def cites(self):
@@ -395,6 +396,24 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         s = utils.utf8(' '.join(filter(lambda x: x not in ('', None), parts)))
         return s
 
+    @property
+    def accepted(self):
+        'Name that should be used if name of self should be rejected'
+        from sqlalchemy.orm.session import object_session
+        session = object_session(self)
+        syn = session.query(SpeciesSynonym).filter(
+            SpeciesSynonym.synonym_id == self.id).first()
+        accepted = syn and syn.family
+        return accepted
+
+    @accepted.setter
+    def accepted(self, value):
+        'Name that should be used if name of self should be rejected'
+        assert isinstance(value, self.__class__)
+        if self in value.synonyms:
+            return
+        value.synonyms.append(self)
+
     def has_accessions(self):
         '''true if species is linked to at least one accession
         '''
@@ -430,7 +449,7 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         setattr(self, self.infrasp_attr[level]['epithet'], epithet)
         setattr(self, self.infrasp_attr[level]['author'], author)
 
-    def as_dict(self):
+    def as_dict(self, recurse=True):
         result = dict((col, getattr(self, col))
                       for col in self.__table__.columns.keys()
                       if col not in ['id', 'sp']
@@ -442,6 +461,8 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         result['epithet'] = self.sp
         result['ht-rank'] = 'genus'
         result['ht-epithet'] = self.genus.genus
+        if recurse and self.accepted is not None:
+            result['accepted'] = self.accepted.as_dict(recurse=False)
         return result
 
     @classmethod
@@ -455,9 +476,12 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
     @classmethod
     def retrieve(cls, session, keys):
         from genus import Genus
-        return session.query(cls).filter(
-            cls.sp == keys['epithet']).join(Genus).filter(
-            Genus.genus == keys['ht-epithet']).all()
+        try:
+            return session.query(cls).filter(
+                cls.sp == keys['epithet']).join(Genus).filter(
+                Genus.genus == keys['ht-epithet']).one()
+        except:
+            return None
 
     @classmethod
     def compute_serializable_fields(cls, session, keys):
@@ -509,10 +533,13 @@ class SpeciesNote(db.Base, db.Serializable):
     def retrieve(cls, session, keys):
         from genus import Genus
         genus, epithet = keys['species'].split(' ', 1)
-        return session.query(cls).filter(
-            cls.category == keys['category']).join(Species).filter(
-            Species.sp == epithet).join(Genus).filter(
-            Genus.genus == genus).all()
+        try:
+            return session.query(cls).filter(
+                cls.category == keys['category']).join(Species).filter(
+                Species.sp == epithet).join(Genus).filter(
+                Genus.genus == genus).one()
+        except:
+            return None
 
 
 class SpeciesSynonym(db.Base):
@@ -602,9 +629,12 @@ class VernacularName(db.Base, db.Serializable):
         sp = session.query(Species).filter(
             Species.sp == s_epithet).join(Genus).filter(
             Genus.genus == g_epithet).first()
-        return session.query(cls).filter(
-            cls.species == sp,
-            cls.language == keys['language']).all()
+        try:
+            return session.query(cls).filter(
+                cls.species == sp,
+                cls.language == keys['language']).one()
+        except:
+            return None
 
     @property
     def pictures(self):
@@ -699,3 +729,8 @@ class Color(db.Base):
             return '%s (%s)' % (self.name, self.code)
         else:
             return str(self.code)
+
+
+db.Species = Species
+db.SpeciesNote = SpeciesNote
+db.VernacularName = VernacularName

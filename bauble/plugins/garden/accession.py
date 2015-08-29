@@ -462,7 +462,10 @@ class AccessionNote(db.Base, db.Serializable):
             q = q.filter(cls.date == keys['date'])
         if 'category' in keys:
             q = q.filter(cls.category == keys['category'])
-        return q.all()
+        try:
+            return q.one()
+        except:
+            return None
 
     @classmethod
     def compute_serializable_fields(cls, session, keys):
@@ -745,8 +748,11 @@ class Accession(db.Base, db.Serializable):
 
     @classmethod
     def retrieve(cls, session, keys):
-        return session.query(cls).filter(
-            cls.code == keys['code']).all()
+        try:
+            return session.query(cls).filter(
+                cls.code == keys['code']).one()
+        except:
+            return None
 
 
 from bauble.plugins.garden.plant import Plant, PlantEditor
@@ -1757,8 +1763,7 @@ class AccessionEditorPresenter(editor.GenericEditorPresenter):
                     self.view.widgets.acc_species_entry.\
                         set_text(utils.utf8(syn.species))
                     set_model(syn.species)
-            box = utils.add_message_box(self.view.widgets.message_box_parent,
-                                        utils.MESSAGE_BOX_YESNO)
+            box = self.view.add_message_box(utils.MESSAGE_BOX_YESNO)
             box.message = msg
             box.on_response = on_response
             box.show()

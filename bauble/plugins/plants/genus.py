@@ -31,8 +31,9 @@ import gtk
 import logging
 logger = logging.getLogger(__name__)
 
-from sqlalchemy import Column, Unicode, Integer, ForeignKey, \
-    UnicodeText, func, and_, UniqueConstraint, String
+from sqlalchemy import (
+    Column, Unicode, Integer, ForeignKey, UnicodeText, String,
+    UniqueConstraint, func, and_)
 from sqlalchemy.orm import relation, backref, validates
 from sqlalchemy.orm.session import object_session
 from sqlalchemy.exc import DBAPIError
@@ -167,6 +168,7 @@ class Genus(db.Base, db.Serializable):
     __mapper_args__ = {'order_by': ['genus', 'author']}
 
     rank = 'genus'
+    link_keys = ['accepted']
 
     @property
     def cites(self):
@@ -211,6 +213,28 @@ class Genus(db.Base, db.Serializable):
                      primaryjoin='Genus.id==GenusSynonym.synonym_id',
                      cascade='all, delete-orphan', uselist=True)
 
+    @property
+    def accepted(self):
+        'Name that should be used if name of self should be rejected'
+        session = object_session(self)
+        syn = session.query(GenusSynonym).filter(
+            GenusSynonym.synonym_id == self.id).first()
+        accepted = syn and syn.genus
+        return accepted
+
+    @accepted.setter
+    def accepted(self, value):
+        'Name that should be used if name of self should be rejected'
+        assert isinstance(value, self.__class__)
+        if self in value.synonyms:
+            return
+        # remove any previous `accepted` link
+        session = db.Session()
+        session.query(GenusSynonym).filter(
+            GenusSynonym.synonym_id == self.id).delete()
+        session.commit()
+        value.synonyms.append(self)
+
     def __repr__(self):
         return Genus.str(self)
 
@@ -234,7 +258,7 @@ class Genus(db.Base, db.Serializable):
 
         return False
 
-    def as_dict(self):
+    def as_dict(self, recurse=True):
         result = db.Serializable.as_dict(self)
         del result['genus']
         del result['qualifier']
@@ -243,12 +267,24 @@ class Genus(db.Base, db.Serializable):
         result['epithet'] = self.genus
         result['ht-rank'] = 'familia'
         result['ht-epithet'] = self.family.family
+        if recurse and self.accepted is not None:
+            result['accepted'] = self.accepted.as_dict(recurse=False)
         return result
 
     @classmethod
     def retrieve(cls, session, keys):
-        return session.query(cls).filter(
-            cls.genus == keys['epithet']).all()
+        try:
+            return session.query(cls).filter(
+                cls.genus == keys['epithet']).one()
+        except:
+            if 'author' not in keys:
+                return None
+        try:
+            return session.query(cls).filter(
+                cls.genus == keys['epithet'],
+                cls.author == keys['author']).one()
+        except:
+            return None
 
     @classmethod
     def correct_field_names(cls, keys):
@@ -462,8 +498,7 @@ class GenusEditorPresenter(editor.GenericEditorPresenter):
                     # duplicate it here
                     self.set_model_attr('family', syn.family)
 
-            box = utils.add_message_box(self.view.widgets.message_box_parent,
-                                        utils.MESSAGE_BOX_YESNO)
+            box = self.view.add_message_box(utils.MESSAGE_BOX_YESNO)
             box.message = msg
             box.on_response = on_response
             box.show()
@@ -945,13 +980,10 @@ class SynonymsExpander(InfoExpander):
         # use True comparison in case the preference isn't set
         self.set_expanded(prefs[self.expanded_pref] is True)
         self.session = object_session(row)
-        syn = self.session.query(GenusSynonym).filter(
-            GenusSynonym.synonym_id == row.id).first()
-        accepted = syn and syn.genus
         logger.debug("genus %s is synonym of %s and has synonyms %s" %
-                     (row, accepted, row.synonyms))
+                     (row, row.accepted, row.synonyms))
         self.set_label(_("Synonyms"))  # reset default value
-        if accepted is not None:
+        if row.accepted is not None:
             self.set_label(_("Accepted name"))
             on_clicked = lambda l, e, syn: select_in_search_results(syn)
             # create clickable label that will select the synonym
@@ -959,9 +991,9 @@ class SynonymsExpander(InfoExpander):
             box = gtk.EventBox()
             label = gtk.Label()
             label.set_alignment(0, .5)
-            label.set_markup(Genus.str(accepted, author=True))
+            label.set_markup(Genus.str(row.accepted, author=True))
             box.add(label)
-            utils.make_label_clickable(label, on_clicked, accepted)
+            utils.make_label_clickable(label, on_clicked, row.accepted)
             syn_box.pack_start(box, expand=False, fill=False)
             self.show_all()
             self.set_sensitive(True)
@@ -1011,3 +1043,6 @@ class GenusInfoBox(InfoBox):
         self.synonyms.update(row)
         self.links.update(row)
         self.props.update(row)
+
+
+db.Genus = Genus

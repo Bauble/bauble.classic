@@ -196,8 +196,14 @@ def default_completion_match_func(completion, key_string, treeiter):
 
 class GenericEditorView(object):
     """
-    An generic object meant to be extended to provide the view for a
-    GenericModelViewPresenterEditor.
+    A generic class meant (not) to be subclassed, to provide the view
+    for the Bauble Model-View-Presenter pattern. The idea is that you
+    subclass the Presenter alone, and that the View remains as 'stupid'
+    as it is conceivable.
+
+    The presenter should interact with the view by the sole interface,
+    please consider all members of the view as private, this is
+    particularly true for the ones having anything to do with GTK.
 
     :param filename: a gtk.Builder UI definition
 
@@ -236,9 +242,39 @@ class GenericEditorView(object):
             if isinstance(window, gtk.Dialog):
                 self.connect(window, 'close', self.on_dialog_close)
                 self.connect(window, 'response', self.on_dialog_response)
+        self.box = set()  # the top level, meant for warnings.
 
     def set_label(self, widget_name, value):
         getattr(self.widgets, widget_name).set_markup(value)
+
+    def close_boxes(self):
+        while self.boxes:
+            logger.debug('box is being forcibly removed')
+            box = self.boxes.pop()
+            self.widgets.remove_parent(box)
+            box.destroy()
+
+    def add_box(self, box):
+        logger.debug('box is being added')
+        self.boxes.add(box)
+
+    def remove_box(self, box):
+        logger.debug('box is being removed')
+        if box in self.boxes:
+            self.boxes.remove(box)
+            self.widgets.remove_parent(box)
+            box.destroy()
+        else:
+            logger.debug('box to be removed is not there')
+
+    def add_message_box(self, message_box_type=utils.MESSAGE_BOX_INFO):
+        """add a message box to the message_box_parent container
+
+        :param type: one of MESSAGE_BOX_INFO, MESSAGE_BOX_ERROR or
+          MESSAGE_BOX_YESNO
+        """
+        return utils.add_message_box(self.widgets.message_box_parent,
+                                     message_box_type)
 
     def connect_signals(self, target):
         'connect all signals declared in the glade file'
@@ -329,7 +365,7 @@ class GenericEditorView(object):
         widget = (isinstance(widget, gtk.Widget)
                   and widget
                   or self.widgets[widget])
-        utils.set_widget_value(widget, index)
+        return utils.get_widget_value(widget, index)
 
     def set_widget_value(self, widget, value, markup=False, default=None,
                          index=0):
@@ -524,8 +560,8 @@ class GenericEditorPresenter(object):
         self.problems = set()
         self._dirty = False
         self.session = object_session(model)
-        logger.debug("session, model, view = %s, %s, %s"
-                     % (self.session, model, view))
+        #logger.debug("session, model, view = %s, %s, %s"
+        #             % (self.session, model, view))
         if view:
             view.accept_buttons = self.view_accept_buttons
             if model and refresh_view:
@@ -637,7 +673,8 @@ class GenericEditorPresenter(object):
 
     def on_relation_entry_changed(self, widget, value=None):
         attr = self.__get_widget_attr(widget)
-        logger.info(attr)
+        logger.debug('calling unimplemented on_relation_entry_changed(%s, %s)'
+                     % (widget, attr))
 
     def dirty(self):
         logger.info('calling deprecated "dirty". use "is_dirty".')
