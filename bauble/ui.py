@@ -297,19 +297,20 @@ class GUI(object):
         main_entry = self.widgets.main_comboentry.child
         if main_entry is not None:
             main_entry.set_text('')
-        self.set_view(DefaultView())
+        self.set_view()
 
-    def set_view(self, view=None):
-        '''
-        set the view, if view is None then remove any views currently set
+    def set_view(self, view='welcome_box'):
+        '''make sure only one view is visible
 
-        :param view: default=None
+        view_box holds several alternative views. this function sets the
+        visible flag of all to False, except for the named one.
+
+        :param view: default=the bauble logo
         '''
         view_box = self.widgets.view_box
         for kid in view_box.get_children():
-            view_box.remove(kid)
-        view_box.pack_start(view, True, True, 0)
-        view.show_all()
+            kid.set_visible(False)
+        getattr(self.widgets, view).set_visible(True)
 
     def get_view(self):
         '''

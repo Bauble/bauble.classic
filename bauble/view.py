@@ -1239,6 +1239,8 @@ def select_in_search_results(obj):
 
 class DefaultCommandHandler(pluginmgr.CommandHandler):
 
+    view_name = 'welcome_box'
+
     def __init__(self):
         super(DefaultCommandHandler, self).__init__()
         self.view = None

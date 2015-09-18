@@ -174,7 +174,7 @@ def command_handler(cmd, arg):
         if hasattr(old_view, 'accel_group'):
             gui.window.remove_accel_group(old_view.accel_group)
         # add the new view, and its accel_group if it has one
-        gui.set_view(handler_view)
+        gui.set_view(last_handler.view_name)
         if hasattr(handler_view, 'accel_group'):
             gui.window.add_accel_group(handler_view.accel_group)
     try:

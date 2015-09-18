@@ -333,6 +333,7 @@ class PrefsCommandHandler(pluginmgr.CommandHandler):
 
     command = ('prefs', 'config')
     view = None
+    view_name = 'prefs_box'
 
     def __call__(self, cmd, arg):
         pass
