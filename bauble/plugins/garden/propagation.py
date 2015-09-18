@@ -136,24 +136,24 @@ class Propagation(db.Base):
                 values.append(_('Flower buds: %s') %
                               flower_buds_values[c.flower_buds])
             if c.wound is not None:
-                values.append(_('Wounded: %s' % wound_values[c.wound]))
+                values.append(_('Wounded: %s') % wound_values[c.wound])
             if c.fungicide:
-                values.append(_('Fungal soak: %s' % c.fungicide))
+                values.append(_('Fungal soak: %s') % c.fungicide)
             if c.hormone:
-                values.append(_('Hormone treatment: %s' % c.hormone))
+                values.append(_('Hormone treatment: %s') % c.hormone)
             if c.bottom_heat_temp:
                 values.append(
                     _('Bottom heat: %(temp)s%(unit)s') %
                     dict(temp=c.bottom_heat_temp,
                          unit=bottom_heat_unit_values[c.bottom_heat_unit]))
             if c.container:
-                values.append(_('Container: %s' % c.container))
+                values.append(_('Container: %s') % c.container)
             if c.media:
-                values.append(_('Media: %s' % c.media))
+                values.append(_('Media: %s') % c.media)
             if c.location:
-                values.append(_('Location: %s' % c.location))
+                values.append(_('Location: %s') % c.location)
             if c.cover:
-                values.append(_('Cover: %s' % c.cover))
+                values.append(_('Cover: %s') % c.cover)
 
             if c.rooted_pct:
                 values.append(_('Rooted: %s%%') % c.rooted_pct)
@@ -656,7 +656,7 @@ class CuttingPresenter(editor.GenericEditorPresenter):
         for widget, attr in self.widget_to_field_map.iteritems():
             value = getattr(self.model, attr)
             #debug('%s: %s' % (widget, value))
-            self.view.set_widget_value(widget, value)
+            self.view.widget_set_value(widget, value)
 
 
 class SeedPresenter(editor.GenericEditorPresenter):
@@ -750,7 +750,7 @@ class SeedPresenter(editor.GenericEditorPresenter):
             value = getattr(self.model, attr)
             if isinstance(value, datetime.date):
                 value = value.strftime(date_format)
-            self.view.set_widget_value(widget, value)
+            self.view.widget_set_value(widget, value)
 
 
 class PropagationPresenter(editor.ChildPresenter):
@@ -775,7 +775,7 @@ class PropagationPresenter(editor.ChildPresenter):
         self.view.connect('prop_type_combo', 'changed',
                           self.on_prop_type_changed)
         if self.model.prop_type:
-            self.view.set_widget_value('prop_type_combo', self.model.prop_type)
+            self.view.widget_set_value('prop_type_combo', self.model.prop_type)
 
         self._cutting_presenter = CuttingPresenter(self, self.model, self.view,
                                                    self.session)
@@ -788,12 +788,12 @@ class PropagationPresenter(editor.ChildPresenter):
         if self.model.date:
             format = prefs.prefs[prefs.date_format_pref]
             date = self.model.date.strftime(format)
-            self.view.set_widget_value(self.view.widgets.prop_date_entry, date)
+            self.view.widget_set_value(self.view.widgets.prop_date_entry, date)
         else:
-            self.view.set_widget_value(self.view.widgets.prop_date_entry,
+            self.view.widget_set_value(self.view.widgets.prop_date_entry,
                                        utils.today_str())
 
-        self.view.set_widget_value(self.view.widgets.notes_textview,
+        self.view.widget_set_value(self.view.widgets.notes_textview,
                                    self.model.notes)
 
         self._dirty = False

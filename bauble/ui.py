@@ -80,8 +80,8 @@ class GUI(object):
             pixbuf = gtk.gdk.pixbuf_new_from_file(bauble.default_icon)
             self.window.set_icon(pixbuf)
         except Exception:
-            logger.warning(_('Could not load icon from %s'
-                             % bauble.default_icon))
+            logger.warning(_('Could not load icon from %s')
+                           % bauble.default_icon)
             logger.warning(traceback.format_exc())
 
         menubar = self.create_main_menu()
@@ -565,8 +565,8 @@ class GUI(object):
             db.create()
             pluginmgr.init()
         except Exception, e:
-            msg = _('Could not create a new database.\n\n%s' %
-                    utils.xml_safe(e))
+            msg = _('Could not create a new database.\n\n%s') % \
+                utils.xml_safe(e)
             tb = utils.xml_safe(traceback.format_exc())
             utils.message_details_dialog(msg, tb, gtk.MESSAGE_ERROR)
             return
@@ -576,9 +576,9 @@ class GUI(object):
         """
         Open the connection manager.
         """
-        from connmgr import ConnectionManager
+        from connmgr import ConnMgrPresenter
         default_conn = prefs[bauble.conn_default_pref]
-        cm = ConnectionManager(default_conn)
+        cm = ConnMgrPresenter(default=default_conn)
         name, uri = cm.start()
         if name is None:
             return
@@ -661,7 +661,7 @@ class GUI(object):
         f = os.path.join(paths.lib_dir(), 'images', 'icon.svg')
         pixbuf = gtk.gdk.pixbuf_new_from_file(f)
         about.set_logo(pixbuf)
-        about.set_copyright(_(u'Copyright \u00A9 by its contributors.'))
+        about.set_copyright(_(u'Copyright © by its contributors.'))
 
         import codecs
         with codecs.open(os.path.join(paths.installation_dir(), 'share',

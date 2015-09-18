@@ -79,9 +79,9 @@ if main_is_frozen():  # main is frozen
 # make sure we look in the lib path for modules
 sys.path.append(paths.lib_dir())
 
-if False:
-    sys.stderr.write('sys.path: %s\n' % sys.path)
-    sys.stderr.write('PATH: %s\n' % os.environ['PATH'])
+#if False:
+#    sys.stderr.write('sys.path: %s\n' % sys.path)
+#    sys.stderr.write('PATH: %s\n' % os.environ['PATH'])
 
 
 # set SQLAlchemy logging level
@@ -161,7 +161,7 @@ def command_handler(cmd, arg):
         if cmd is None:
             utils.message_dialog(_('No default handler registered'))
         else:
-            utils.message_dialog(_('No command handler for %s' % cmd))
+            utils.message_dialog(_('No command handler for %s') % cmd)
             return
 
     if not isinstance(last_handler, handler_cls):
@@ -304,6 +304,10 @@ def main(uri=None):
             print _('Please make sure that GTK_ROOT\\bin is in your PATH.')
         sys.exit(1)
 
+    # create the user directory
+    if not os.path.exists(paths.user_dir()):
+        os.makedirs(paths.user_dir())
+
     # add console root handler, and file root handler, set it at the logging
     # level specified by BAUBLE_LOGGING, or at INFO level.
     filename = os.path.join(paths.user_dir(), 'bauble.log')
@@ -345,10 +349,6 @@ def main(uri=None):
     from bauble.prefs import prefs
     import bauble.utils as utils
 
-    # create the user directory
-    if not os.path.exists(paths.user_dir()):
-        os.makedirs(paths.user_dir())
-
     # initialize threading
     gobject.threads_init()
 
@@ -371,12 +371,10 @@ def main(uri=None):
     open_exc = None
     # open default database
     if uri is None:
-        from bauble.connmgr import ConnectionManager
-        default_conn = prefs[conn_default_pref]
+        from bauble.connmgr import start_connection_manager
         while True:
             if not uri or not conn_name:
-                cm = ConnectionManager(default_conn)
-                conn_name, uri = cm.start()
+                conn_name, uri = start_connection_manager()
                 if conn_name is None:
                     quit()
             try:

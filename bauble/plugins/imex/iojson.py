@@ -32,12 +32,10 @@ from bauble.plugins.garden.accession import (Accession, AccessionNote)
 from bauble.plugins.garden.location import (Location)
 import bauble.task
 import bauble.editor as editor
-from bauble.error import check, CheckConditionError
 import bauble.paths as paths
 import json
 import bauble.pluginmgr as pluginmgr
 from bauble import pb_set_fraction
-
 
 
 def serializedatetime(obj):
@@ -58,81 +56,32 @@ def serializedatetime(obj):
     return {'__class__': 'datetime', 'millis': millis}
 
 
-class TreeStoreFlattener(object):
+class JSONExporter(editor.GenericEditorPresenter):
+    '''Export taxonomy and plants in JSON format.
 
-    def __call__(self, model):
-        self.result = []
-        return self.flatten(model, model.iter_children(None))
-
-    def flatten(self, model, iter):
-        while iter:
-            self.result.append(model.get_value(iter, 0))
-            self.flatten(model, model.iter_children(iter))
-            iter = model.iter_next(iter)
-        return self.result
-
-tree_store_flatten = TreeStoreFlattener()
-
-
-class ExportToJson(editor.GenericEditorView):
-    "the View ((M)VP)"
-
-    _tooltips = {}
-    _choices = {'based_on': 'selection',
-                'includes': 'referred',
-                }
+    the Presenter ((M)VP)'''
 
     last_folder = ''
+    widget_to_field_map = {
+        'sbo_selection': 'selection_based_on',
+        'sbo_taxa': 'selection_based_on',
+        'sbo_accessions': 'selection_based_on',
+        'sbo_plants': 'selection_based_on',
+        'ei_referred': 'export_includes',
+        'ei_referring': 'export_includes',
+        'chkincludeprivate': 'include_private',
+        'filename': 'filename',
+        }
 
-    def radio_button_pushed(self, widget, group):
-        name = gtk.Buildable.get_name(widget).split('_')[1]
-        self._choices[group] = name
-        logger.debug("selected %s for group %s" % (name, group))
+    view_accept_buttons = ['sed-button-ok', 'sed-button-cancel', ]
 
-    def __init__(self, session, parent=None):
-        self.session = session
-        filename = os.path.join(paths.lib_dir(), 'plugins', 'imex',
-                                'select_export.glade')
-        super(ExportToJson, self).__init__(filename, parent=parent)
-        self.builder.connect_signals(self)
-        for wn in ['selection', 'taxa', 'accessions', 'plants']:
-            self.connect('sbo_' + wn, 'toggled',
-                         self.radio_button_pushed, "based_on")
-        for wn in ['referred', 'referring']:
-            self.connect('ei_' + wn, 'toggled',
-                         self.radio_button_pushed, "includes")
-
-    def on_btnbrowse_clicked(self, button):
-        chooser = gtk.FileChooserDialog(
-            _("Choose a file..."), None,
-            buttons=(gtk.STOCK_OK, gtk.RESPONSE_ACCEPT,
-                     gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
-        #chooser.set_do_overwrite_confirmation(True)
-        #chooser.connect("confirm-overwrite", confirm_overwrite_callback)
-        try:
-            if self.last_folder:
-                chooser.set_current_folder(self.last_folder)
-            if chooser.run() == gtk.RESPONSE_ACCEPT:
-                filename = chooser.get_filename()
-                if filename:
-                    ExportToJson.last_folder, bn = os.path.split(filename)
-                    self.widgets.filename.set_text(filename)
-        except Exception, e:
-            logger.warning("unhandled exception in iojson.py: %s" % e)
-        chooser.destroy()
-
-    def get_window(self):
-        return self.widgets.select_export_dialog
-
-    def start(self):
-        return self.get_window().run()
-
-    def get_filename(self):
-        return self.widgets.filename.get_text()
-
-    def popup_message(self, message):
-        'show message and return'
-        utils.message_dialog(message)
+    def __init__(self, view):
+        self.selection_based_on = 'sbo_selection'
+        self.export_includes = 'ei_referred'
+        self.include_private = True
+        self.filename = ''
+        super(JSONExporter, self).__init__(
+            model=self, view=view, refresh_view=True)
 
     def get_objects(self):
         '''return the list of objects to be exported
@@ -142,27 +91,23 @@ class ExportToJson(editor.GenericEditorView):
         if "based_on" is something else, return all that is needed to create
         a complete export.
         '''
-        if self._choices['based_on'] == 'selection':
-            class EmptySelectionException(Exception):
-                pass
-            from bauble.view import SearchView
-            view = bauble.gui.get_view()
-            try:
-                check(isinstance(view, SearchView))
-                tree_view = view.results_view.get_model()
-                check(tree_view is not None)
-            except CheckConditionError:
-                utils.message_dialog(_('Search for something first.'))
-                return
-
-            return [row[0] for row in tree_view]
+        if self.selection_based_on == 'sbo_selection':
+            if self.include_private:
+                logger.info('exporting selection overrides `include_private`')
+            return self.view.get_selection()
 
         ## export disregarding selection
         result = []
-        if self._choices['based_on'] == 'plants':
-            plants = self.session.query(Plant).order_by(Plant.code).join(
-                Accession).order_by(Accession.code).all()
-            plantnotes = self.session.query(PlantNote).all()
+        if self.selection_based_on == 'sbo_plants':
+            plant_query = self.session.query(
+                Plant).order_by(Plant.code).join(
+                Accession).order_by(Accession.code)
+            if self.include_private is False:
+                plant_query = plant_query.filter(
+                    Accession.private == False)  # `is` does not work
+            plants = plant_query.all()
+            plantnotes = self.session.query(PlantNote).filter(
+                PlantNote.plant_id.in_([j.id for j in plants])).all()
             ## only used locations and accessions
             locations = self.session.query(Location).filter(
                 Location.id.in_([j.location_id for j in plants])).all()
@@ -177,13 +122,17 @@ class ExportToJson(editor.GenericEditorView):
             result.extend(locations)
             result.extend(plants)
             result.extend(plantnotes)
-        elif self._choices['based_on'] == 'accessions':
+        elif self.selection_based_on == 'sbo_accessions':
             accessions = self.session.query(Accession).order_by(
                 Accession.code).all()
-            accessionnotes = self.session.query(AccessionNote).all()
+            if self.include_private is False:
+                accessions = [j for j in accessions if j.private is False]
+            accessionnotes = self.session.query(AccessionNote).filter(
+                AccessionNote.accession_id.in_(
+                    [j.id for j in accessions])).all()
 
         ## now the taxonomy, based either on all species or on the ones used
-        if self._choices['based_on'] == 'taxa':
+        if self.selection_based_on == 'sbo_taxa':
             species = self.session.query(Species).order_by(
                 Species.sp).all()
         else:
@@ -194,6 +143,9 @@ class ExportToJson(editor.GenericEditorView):
                 Species.id.in_([j.species_id for j in accessions])).order_by(
                 Species.sp).all()
 
+        vernacular = self.session.query(VernacularName).filter(
+            VernacularName.species_id.in_([j.id for j in species])).all()
+
         ## and all used genera and families
         genera = self.session.query(Genus).filter(
             Genus.id.in_([j.genus_id for j in species])).order_by(
@@ -203,98 +155,36 @@ class ExportToJson(editor.GenericEditorView):
             Familia.family).all()
 
         ## prepend the result with the taxonomic information
-        result = families + genera + species + result
+        result = families + genera + species + vernacular + result
 
         ## done, return the result
         return result
 
+    def on_btnbrowse_clicked(self, button):
+        self.view.run_file_chooser_dialog(
+            _("Choose a file..."), None,
+            action=gtk.FILE_CHOOSER_ACTION_SAVE,
+            buttons=(gtk.STOCK_OK, gtk.RESPONSE_ACCEPT,
+                     gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL),
+            last_folder=self.last_folder, target='filename')
+        filename = self.view.widget_get_value('filename')
+        JSONExporter.last_folder, bn = os.path.split(filename)
 
-class JSONImporter(object):
-    '''The import process will be queued as a bauble task. there is no callback
-    informing whether it is successfully completed or not.
+    def on_btnok_clicked(self, widget):
+        self.run()  # should go in the background really
 
-    the Presenter ((M)VP)
-    '''
+    def on_btncancel_clicked(self, widget):
+        pass
 
-    def __init__(self):
-        super(JSONImporter, self).__init__()
-        self.__error = False   # flag to indicate error on import
-        self.__cancel = False  # flag to cancel importing
-        self.__pause = False   # flag to pause importing
-        self.__error_exc = False
-        self.create = True     # should be an option
-
-    def start(self, filenames=None):
-        if filenames is None:
-            d = gtk.FileChooserDialog(
-                _("Choose a file to import from..."), None,
-                gtk.FILE_CHOOSER_ACTION_SAVE,
-                (gtk.STOCK_OK, gtk.RESPONSE_ACCEPT,
-                 gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
-            response = d.run()
-            filename = d.get_filename()
-            d.destroy()
-            if response != gtk.RESPONSE_ACCEPT or filename is None:
-                return
-            filenames = [filename]
-        objects = [json.load(open(fn)) for fn in filenames]
-        a = []
-        for i in objects:
-            if isinstance(i, list):
-                a.extend(i)
-            else:
-                a.append(i)
-        bauble.task.queue(self.run(a))
-
-    def run(self, objects):
-        ## generator function. will be run as a task.
-        session = db.Session()
-        n = len(objects)
-        for i, obj in enumerate(objects):
-            try:
-                db.construct_from_dict(session, obj, self.create)
-            except Exception as e:
-                logger.warning("could not import %s (%s: %s)" %
-                               (obj, type(e).__name__, e.args))
-            pb_set_fraction(float(i) / n)
-            yield
-        session.commit()
-
-
-class JSONExporter(object):
-    '''Export taxonomy and plants in JSON format.
-
-    the Presenter ((M)VP)'''
-
-    def __init__(self, view):
-        self.view = view
-
-    def start(self, filename=None, objects=None):
-        "interact with user to establish what to do"
-        if filename is None:  # need user intervention
-            response = gtk.RESPONSE_NONE
-            while response != gtk.RESPONSE_OK:
-                response = self.view.start()
-                if response in[gtk.RESPONSE_CANCEL, gtk.RESPONSE_DELETE_EVENT]:
-                    return
-                filename = self.view.get_filename()
-                if filename == '':
-                    self.view.popup_message(_('Please first choose a file.'))
-                    response = gtk.RESPONSE_NONE
-            objects = self.view.get_objects()
-        logger.debug("will run with filename and objects: %s %s" %
-                     (filename, objects))
-        self.run(filename, objects)
-
-    def run(self, filename, objects=None):
+    def run(self):
         "perform the export"
-        if filename is None:
-            raise ValueError("filename can not be None")
 
+        filename = self.filename
         if os.path.exists(filename) and not os.path.isfile(filename):
             raise ValueError("%s exists and is not a a regular file"
                              % filename)
 
+        objects = self.get_objects()
         # if objects is None then export all objects under classes Familia,
         # Genus, Species, Accession, Plant, Location.
         if objects is None:
@@ -313,7 +203,7 @@ class JSONExporter(object):
                     'Exporting this many objects may take several minutes.  '
                     '\n\n<i>Would you like to continue?</i>') \
                 % ({'nplants': count})
-            if not utils.yes_no_dialog(msg):
+            if not self.view.run_yes_no_dialog(msg):
                 return
 
         import codecs
@@ -324,6 +214,66 @@ class JSONExporter(object):
                             default=serializedatetime, sort_keys=True)
                  for obj in objects]))
             output.write(']')
+
+
+class JSONImporter(editor.GenericEditorPresenter):
+    '''The import process will be queued as a bauble task. there is no callback
+    informing whether it is successfully completed or not.
+
+    the Presenter ((M)VP)
+    Model (attributes container) is the Presenter itself.
+    '''
+
+    widget_to_field_map = {'chk_create': 'create',
+                           'chk_update': 'update',
+                           'input_filename': 'filename',
+                           }
+    last_folder = ''
+
+    view_accept_buttons = ['sid-button-ok', 'sid-button-cancel', ]
+
+    def __init__(self, view):
+        self.filename = ''
+        self.update = True
+        self.create = True
+        super(JSONImporter, self).__init__(
+            model=self, view=view, refresh_view=True)
+        self.__error = False   # flag to indicate error on import
+        self.__cancel = False  # flag to cancel importing
+        self.__pause = False   # flag to pause importing
+        self.__error_exc = False
+
+    def on_btnbrowse_clicked(self, button):
+        self.view.run_file_chooser_dialog(
+            _("Choose a file..."), None,
+            action=gtk.FILE_CHOOSER_ACTION_OPEN,
+            buttons=(gtk.STOCK_OK, gtk.RESPONSE_ACCEPT,
+                     gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL),
+            last_folder=self.last_folder, target='input_filename')
+        filename = self.view.widget_get_value('input_filename')
+        JSONImporter.last_folder, bn = os.path.split(filename)
+
+    def on_btnok_clicked(self, widget):
+        obj = json.load(open(self.filename))
+        a = isinstance(obj, list) and obj or [obj]
+        bauble.task.queue(self.run(a))
+
+    def on_btncancel_clicked(self, widget):
+        pass
+
+    def run(self, objects):
+        ## generator function. will be run as a task.
+        session = db.Session()
+        n = len(objects)
+        for i, obj in enumerate(objects):
+            try:
+                db.construct_from_dict(session, obj, self.create, self.update)
+            except Exception as e:
+                logger.warning("could not import %s (%s: %s)" %
+                               (obj, type(e).__name__, e.args))
+            pb_set_fraction(float(i) / n)
+            yield
+        session.commit()
 
 
 #
@@ -340,8 +290,14 @@ class JSONImportTool(pluginmgr.Tool):
         Start the JSON importer.  This tool will also reinitialize the
         plugins after importing.
         """
-        c = JSONImporter()
-        c.start()
+        s = db.Session()
+        filename = os.path.join(
+            paths.lib_dir(), 'plugins', 'imex', 'select_export.glade')
+        presenter = JSONImporter(view=editor.GenericEditorView(
+            filename, root_widget_name='select_import_dialog'))
+        presenter.start()  # interact && run
+        presenter.cleanup()
+        s.close()
 
 
 class JSONExportTool(pluginmgr.Tool):
@@ -353,6 +309,10 @@ class JSONExportTool(pluginmgr.Tool):
         # the presenter uses the view to interact with user then
         # performs the export, if this is the case.
         s = db.Session()
-        presenter = JSONExporter(view=ExportToJson(s))
+        filename = os.path.join(
+            paths.lib_dir(), 'plugins', 'imex', 'select_export.glade')
+        presenter = JSONExporter(view=editor.GenericEditorView(
+            filename, root_widget_name='select_export_dialog'))
         presenter.start()  # interact && run
+        presenter.cleanup()
         s.close()

@@ -55,8 +55,8 @@ from bauble.plugins.garden.institution import Institution, InstitutionEditor
 import bauble.prefs as prefs
 
 
-accession_test_data = ({'id': 1, 'code': u'1.1', 'species_id': 1},
-                       {'id': 2, 'code': u'2.2', 'species_id': 2,
+accession_test_data = ({'id': 1, 'code': u'2001.1', 'species_id': 1},
+                       {'id': 2, 'code': u'2001.2', 'species_id': 2,
                         'source_type': u'Collection'},
                        )
 
@@ -279,9 +279,9 @@ class PlantTests(GardenTestCase):
 
     def test_delete(self):
         """
-        TODO: Test that when a plant is deleted...
+        Test that when a plant is deleted...
         """
-        pass
+        raise SkipTest('Not Implemented')
 
     def test_editor_addnote(self):
         raise SkipTest('Not Implemented')
@@ -604,12 +604,12 @@ class PropagationTests(GardenTestCase):
         widgets = self.editor.presenter.view.widgets
         self.assertTrue(widgets is not None)
         view = self.editor.presenter.view
-        view.set_widget_value('prop_type_combo', u'UnrootedCutting')
-        view.set_widget_value('prop_date_entry', utils.today_str())
+        view.widget_set_value('prop_type_combo', u'UnrootedCutting')
+        view.widget_set_value('prop_date_entry', utils.today_str())
         cutting_presenter = self.editor.presenter._cutting_presenter
         for widget, attr in cutting_presenter.widget_to_field_map.iteritems():
             #debug('%s=%s' % (widget, default_cutting_values[attr]))
-            view.set_widget_value(widget, default_cutting_values[attr])
+            view.widget_set_value(widget, default_cutting_values[attr])
         update_gui()
         self.editor.handle_response(gtk.RESPONSE_OK)
         self.editor.commit_changes()
@@ -634,16 +634,16 @@ class PropagationTests(GardenTestCase):
         view = editor.presenter.view
 
         # set default values in editor widgets
-        view.set_widget_value('prop_type_combo', u'Seed')
-        view.set_widget_value('prop_date_entry',
+        view.widget_set_value('prop_type_combo', u'Seed')
+        view.widget_set_value('prop_date_entry',
                               default_propagation_values['date'])
-        view.set_widget_value('notes_textview',
+        view.widget_set_value('notes_textview',
                               default_propagation_values['notes'])
         for widget, attr in seed_presenter.widget_to_field_map.iteritems():
             w = widgets[widget]
             if isinstance(w, gtk.ComboBoxEntry) and not w.get_model():
                 widgets[widget].child.props.text = default_seed_values[attr]
-            view.set_widget_value(widget, default_seed_values[attr])
+            view.widget_set_value(widget, default_seed_values[attr])
 
         # update the editor, send the RESPONSE_OK signal and commit the changes
         update_gui()
@@ -887,7 +887,7 @@ class AccessionTests(GardenTestCase):
 
     def test_species_str(self):
         """
-        Test Accesion.species_str()
+        Test Accession.species_str()
         """
         acc = self.create(Accession, species=self.species, code=u'1')
         s = u'Echinocactus grusonii'
@@ -1616,17 +1616,48 @@ class PlantSearchTest(GardenTestCase):
     def test_searchbyaccessioncode(self):
         mapper_search = search.get_strategy('MapperSearch')
 
-        results = mapper_search.search('1.1', self.session)
+        results = mapper_search.search('2001.1', self.session)
         self.assertEquals(len(results), 1)
         a = results.pop()
         expect = self.session.query(Accession).filter(
             Accession.id == 1).first()
         logger.debug("%s, %s" % (a, expect))
         self.assertEqual(a, expect)
-        results = mapper_search.search('2.2', self.session)
+        results = mapper_search.search('2001.2', self.session)
         self.assertEquals(len(results), 1)
         a = results.pop()
         expect = self.session.query(Accession).filter(
             Accession.id == 2).first()
         logger.debug("%s, %s" % (a, expect))
         self.assertEqual(a, expect)
+
+
+from bauble.plugins.garden.accession import get_next_code
+
+
+class GlobalFunctionsTests(GardenTestCase):
+    def test_get_next_code_first_this_year(self):
+        this_year = str(datetime.date.today().year)
+        self.assertEquals(get_next_code(), this_year + '.0001')
+
+    def test_get_next_code_second_this_year(self):
+        this_year = str(datetime.date.today().year)
+        this_code = get_next_code()
+        acc = Accession(species=self.species, code=this_code)
+        self.session.add(acc)
+        self.session.flush()
+        self.assertEquals(get_next_code(), this_year + '.0002')
+
+    def test_get_next_code_absolute_beginning(self):
+        this_year = str(datetime.date.today().year)
+        self.session.query(Accession).delete()
+        self.session.flush()
+        self.assertEquals(get_next_code(), this_year + '.0001')
+
+    def test_get_next_code_next_with_hole(self):
+        this_year = str(datetime.date.today().year)
+        this_code = this_year + u'.0050'
+        acc = Accession(species=self.species, code=this_code)
+        self.session.add(acc)
+        self.session.flush()
+        self.assertEquals(get_next_code(), this_year + '.0051')

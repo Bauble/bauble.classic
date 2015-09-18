@@ -28,11 +28,12 @@ except ImportError:
 import os
 import sys
 import glob
+spawn = setuptools.distutils.spawn
+dep_util = setuptools.distutils.dep_util
+dir_util = setuptools.distutils.dir_util
+file_util = setuptools.distutils.file_util
 from distutils.command.build import build as _build
-import distutils.spawn as spawn
-import distutils.dep_util as dep_util
-import distutils.dir_util as dir_util
-import distutils.file_util as file_util
+#from setuptools.command.build_py import build_py as _build
 from setuptools import Command
 from setuptools.command.install import install as _install
 from bauble import version
@@ -211,10 +212,10 @@ class build(_build):
             print msg
             sys.exit(1)
 
-        _build.run(self)
-
         # create build/share directory
         dir_util.mkpath(os.path.join(self.build_base, 'share'))
+
+        _build.run(self)
 
         dest_tmpl = os.path.join(self.build_base, locale_path, '%s',
                                  'LC_MESSAGES')
@@ -274,10 +275,14 @@ class install(_install):
         _install.finalize_options(self)
 
     def run(self):
+        self.run_command('build')
         if sys.platform not in ('linux3', 'linux2', 'win32', 'darwin'):
             msg = "**Error: Can't install on this platform: %s" % sys.platform
             print msg
             sys.exit(1)
+
+        # create build/share directory
+        dir_util.mkpath(os.path.join(self.build_base, 'share'))
 
         if not self.single_version_externally_managed:
             self.do_egg_install()

@@ -1,5 +1,5 @@
 Installation
-------------
+--------------
 
 bauble.classic is a cross-platform program and it will run on unix machines
 like Linux and MacOSX, as well as on Windows.
@@ -131,21 +131,35 @@ welcome.
    W-8. Although it should work fine on other versions Windows it has not
    been thoroughly tested.
 
+.. note:: Direct download links are given for all needed components. They
+          have been tested in September 2015, but things change with
+          time. If any of the direct download links stops working, please
+          ring the bell, so we can update the information here.
+
+.. _Direct link to download git: https://github.com/git-for-windows/git/releases/download/v2.5.2.windows.1/Git-2.5.2-32-bit.exe
+.. _Direct link to download Python: https://www.python.org/ftp/python/2.7.10/python-2.7.10.msi
+.. _Direct link to download PyGTK: http://ftp.gnome.org/pub/GNOME/binaries/win32/pygtk/2.24/pygtk-all-in-one-2.24.2.win32-py2.6.msi
+.. _Direct link to download psycopg2: http://www.stickpeople.com/projects/python/win-psycopg/2.6.1/psycopg2-2.6.1.win32-py2.7-pg9.4.4-release.exe
+
 the installation steps on Windows:
 
 #. download and install ``git`` (comes with a unix-like ``sh`` and includes
    ``vi``) from:
 
    https://git-scm.com/download/win
+   
+   `Direct link to download git`_
 
    all default options are fine, except we need git to be executable from
    the command prompt:
 
-   .. image:: git3.png
+   .. image:: images/screenshots/git3.png
 
 #. download and install Python 2.x (32bit) from:
 
    http://www.python.org
+
+   `Direct link to download Python`_
 
    Bauble has been developed and tested using Python 2.x.  It will
    definitely **not** run on Python 3.x.  If you are interested in helping
@@ -153,16 +167,18 @@ the installation steps on Windows:
 
    when installing Python, do put Python in the PATH:
 
-   .. image:: python3.png
+   .. image:: images/screenshots/python3.png
 
 #. download ``pygtk`` from the following source. (this requires 32bit
    python). be sure you download the "all in one" version::
 
     http://ftp.gnome.org/pub/GNOME/binaries/win32/pygtk/
 
+   `Direct link to download PyGTK`_
+
    make a complete install, selecting everything:
 
-   .. image:: pygtk1.png
+   .. image:: images/screenshots/pygtk1.png
 
 #. (optional) download and install a database connector other than
    ``sqlite3``. 
@@ -171,6 +187,8 @@ the installation steps on Windows:
    pip, so "avoid the gory details" and use a pre-compiled pagkage from:
    
    http://initd.org/psycopg/docs/install.html
+
+   `Direct link to download psycopg2`_
 
 #. **REBOOT**
 
@@ -187,14 +205,17 @@ the installation steps on Windows:
    you can also run ``devinstall.bat`` passing it as argument the numerical
    part of the production line you want to follow.
 
-#. the following, you will do regularly, to stay up-to-date with the
-   development line you chose to follow::
+#. download the batch file you will use to stay up-to-date with the
+   production line you chose to follow::
 
-    cd %HOMEDRIVE%%HOMEPATH%
-    .virtualenv\bacl\Scripts\activate.bat
-    cd Local\github\Bauble\bauble.classic
-    git pull
-    python setup.py install
+    https://raw.githubusercontent.com/Bauble/bauble.classic/master/scripts/bauble-update.bat
+
+   if you are on a recent Bauble installation, each time you start the
+   program, Bauble will check on the development site and alert you of any
+   newer bauble release within your chosen production line.
+
+   any time you want to update your installation, just start the command
+   prompt and run ``bauble-update.bat``
 
 #. you can now start bauble using the ``bauble.lnk`` shortcut that the
    installation procedure copies to the ``Scripts`` directory of the virtual
