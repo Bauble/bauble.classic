@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 #
+# Copyright 2008-2010 Brett Adams
+# Copyright 2015 Mario Frasca <mario@anche.no>.
+#
 # This file is part of bauble.classic.
 #
 # bauble.classic is free software: you can redistribute it and/or modify
@@ -15,7 +18,17 @@
 # You should have received a copy of the GNU General Public License
 # along with bauble.classic. If not, see <http://www.gnu.org/licenses/>.
 
-# The Bauble version.
-# major, minor, revision version tuple
+from bauble.test import BaubleTestCase
+import bauble.plugins.plants.genus
+import bauble.plugins.garden.accession
 
-version = "1.0.51"  # :bump
+from bauble.db import class_of_object
+
+
+class GlobalFunctionsTests(BaubleTestCase):
+    def test_get_next_code_first_this_year(self):
+        self.assertEquals(class_of_object("genus"),
+                          bauble.plugins.plants.genus.Genus)
+        self.assertEquals(class_of_object("accession_note"),
+                          bauble.plugins.garden.accession.AccessionNote)
+        self.assertEquals(class_of_object("not_existing"), None)
