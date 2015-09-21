@@ -364,12 +364,20 @@ class SearchView(pluginmgr.View):
     """
 
     class ViewMeta(dict):
-        """
-        This class shouldn't need to be instantiated directly.  Access
-        the meta for the SearchView with the
+        """associates classes defined in plugins to Meta information
+
+        There is only one such object: the
         :class:`bauble.view.SearchView`'s view_meta property.
         """
+
+        def __getitem__(self, item):
+            if item not in self:  # create on demand
+                self[item] = self.Meta()
+            return self.get(item)
+
         class Meta(object):
+            """every item in ViewMeta is a Meta object.
+            """
             def __init__(self):
                 self.children = None
                 self.infobox = None
@@ -402,9 +410,9 @@ class SearchView(pluginmgr.View):
                     self.actions = filter(lambda x: isinstance(x, Action),
                                           self.context_menu)
 
-            def get_children(self, obj):
+            def get_children(self, row):
                 '''
-                :param obj: get the children from obj according to
+                :param row: get the children from row according to
                 self.children,
 
                 Returns a list or list-like object.
@@ -412,13 +420,8 @@ class SearchView(pluginmgr.View):
                 if self.children is None:
                     return []
                 if callable(self.children):
-                    return self.children(obj)
-                return getattr(obj, self.children)
-
-        def __getitem__(self, item):
-            if item not in self:  # create on demand
-                self[item] = self.Meta()
-            return self.get(item)
+                    return self.children(row)
+                return getattr(row, self.children)
 
     view_meta = ViewMeta()
 
@@ -708,20 +711,25 @@ class SearchView(pluginmgr.View):
         view.collapse_row(path)
         self.remove_children(model, treeiter)
         try:
+            print 'on-test-expand-row:try'
             kids = self.view_meta[type(row)].get_children(row)
+            print 'on-test-expand-row:ok:%s' % kids
             if len(kids) == 0:
                 return True
         except saexc.InvalidRequestError, e:
+            print 'on-test-expand-row:InvalidRequestError:%s' % e
             logger.debug(utils.utf8(e))
             model = self.results_view.get_model()
             for found in utils.search_tree_model(model, row):
                 model.remove(found)
             return True
         except Exception, e:
+            print 'on-test-expand-row:%s:%s' % (type(e), e)
             logger.debug(utils.utf8(e))
             logger.debug(traceback.format_exc())
             return True
         else:
+            print 'on-test-expand-row:append:%s' % kids
             self.append_children(model, treeiter, kids)
             return False
 

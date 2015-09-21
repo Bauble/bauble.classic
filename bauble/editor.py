@@ -352,9 +352,13 @@ class GenericEditorView(object):
             doc = etree.parse(self.filename)
             self.signals = doc.xpath('//signal')
         for s in self.signals:
-            handler = getattr(target, s.get('handler'))
+            ## s is a `signal` element in the glade file, its parent is the
+            ## widget firing the signal, and it has attributes `name` (the
+            ## name of the signal) and `handler` (the method of `target`
+            ## that is to be invoked).
+            method = getattr(target, s.get('handler'))
             signaller = getattr(self.widgets, s.getparent().get('id'))
-            handler_id = signaller.connect(s.get('name'), handler)
+            handler_id = signaller.connect(s.get('name'), method)
             self.__attached_signals.append((signaller, handler_id))
 
     def set_accept_buttons_sensitive(self, sensitive):

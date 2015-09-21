@@ -258,10 +258,12 @@ class PrefsView(pluginmgr.View):
         # signals when the pane is resized....so right now the size is
         # not getting saved in the prefs
 
-        def on_move_handle(paned, data=None):
-            print paned.get_position()
+        def on_move_handle(paned, data=None, extra=None):
+            print paned.get_position(), data, extra
             prefs[self.pane_size_pref] = paned.get_position()
         pane.connect('check-resize', on_move_handle)
+        pane.connect('accept-position', on_move_handle)
+        pane.connect('move-handle', on_move_handle)
 
         if prefs.get(self.pane_size_pref, None) is not None:
             pane.set_position(prefs[self.pane_size_pref])

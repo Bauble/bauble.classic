@@ -160,6 +160,8 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="border_width">5</property>
+                        <signal name="move-handle" handler="on_prefs_box_move_handle" swapped="no"/>
+                        <signal name="accept-position" handler="on_prefs_box_accept_position" swapped="no"/>
                         <child>
                           <object class="GtkFrame" id="frame1">
                             <property name="visible">True</property>
