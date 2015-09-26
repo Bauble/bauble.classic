@@ -159,6 +159,7 @@
                       <object class="GtkVPaned" id="prefs_box">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
+<<<<<<< Updated upstream
                         <property name="border_width">5</property>
                         <signal name="move-handle" handler="on_prefs_box_move_handle" swapped="no"/>
                         <signal name="accept-position" handler="on_prefs_box_accept_position" swapped="no"/>
@@ -230,13 +231,29 @@
                           <packing>
                             <property name="resize">True</property>
                             <property name="shrink">True</property>
+=======
+                        <child>
+                          <object class="GtkImage" id="image3">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="pixbuf">images/bauble_logo.png</property>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+>>>>>>> Stashed changes
                           </packing>
                         </child>
                       </object>
                       <packing>
                         <property name="expand">True</property>
                         <property name="fill">True</property>
+<<<<<<< Updated upstream
                         <property name="position">1</property>
+=======
+                        <property name="position">0</property>
+>>>>>>> Stashed changes
                       </packing>
                     </child>
                     <child>
@@ -440,6 +457,31 @@
             <property name="position">0</property>
           </packing>
         </child>
+<<<<<<< Updated upstream
+=======
+        <child>
+          <object class="GtkStatusbar" id="statusbar">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkWindow" id="notes_window">
+    <property name="can_focus">False</property>
+    <child>
+      <object class="GtkScrolledWindow" id="notes_scrolledwindow">
+        <property name="visible">True</property>
+        <property name="can_focus">True</property>
+        <property name="hscrollbar_policy">automatic</property>
+        <property name="vscrollbar_policy">automatic</property>
+>>>>>>> Stashed changes
         <child>
           <object class="GtkStatusbar" id="statusbar">
             <property name="visible">True</property>

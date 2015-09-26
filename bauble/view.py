@@ -369,6 +369,13 @@ class SearchView(pluginmgr.View):
         There is only one such object: the
         :class:`bauble.view.SearchView`'s view_meta property.
         """
+<<<<<<< Updated upstream
+=======
+        This class shouldn't need to be instantiated directly.  Access
+        the meta for the SearchView with the
+        :class:`bauble.view.SearchView`'s row_meta property.
+        """
+>>>>>>> Stashed changes
 
         def __getitem__(self, item):
             if item not in self:  # create on demand
@@ -423,7 +430,12 @@ class SearchView(pluginmgr.View):
                     return self.children(row)
                 return getattr(row, self.children)
 
+<<<<<<< Updated upstream
     view_meta = ViewMeta()
+=======
+    row_meta = ViewMeta()
+    bottom_info = ViewMeta()
+>>>>>>> Stashed changes
 
     def __init__(self):
         '''
