@@ -40,14 +40,15 @@ from sqlalchemy.orm import object_session
 import sqlalchemy.exc as saexc
 
 import bauble
-import bauble.db as db
+from bauble import db
 from bauble.error import check, BaubleError
-import bauble.paths as paths
-import bauble.pluginmgr as pluginmgr
-import bauble.prefs as prefs
-import bauble.search as search
-import bauble.utils as utils
-import bauble.pictures_view as pictures_view
+from bauble import paths
+from bauble import pluginmgr
+from bauble import prefs
+from bauble import search
+from bauble import utils
+from bauble import editor
+from bauble import pictures_view
 
 # use different formatting template for the result view depending on the
 # platform
@@ -369,13 +370,6 @@ class SearchView(pluginmgr.View):
         There is only one such object: the
         :class:`bauble.view.SearchView`'s view_meta property.
         """
-<<<<<<< Updated upstream
-=======
-        This class shouldn't need to be instantiated directly.  Access
-        the meta for the SearchView with the
-        :class:`bauble.view.SearchView`'s row_meta property.
-        """
->>>>>>> Stashed changes
 
         def __getitem__(self, item):
             if item not in self:  # create on demand
@@ -430,12 +424,8 @@ class SearchView(pluginmgr.View):
                     return self.children(row)
                 return getattr(row, self.children)
 
-<<<<<<< Updated upstream
-    view_meta = ViewMeta()
-=======
     row_meta = ViewMeta()
     bottom_info = ViewMeta()
->>>>>>> Stashed changes
 
     def __init__(self):
         '''
@@ -444,6 +434,8 @@ class SearchView(pluginmgr.View):
         super(SearchView, self).__init__()
         filename = os.path.join(paths.lib_dir(), 'bauble.glade')
         self.widgets = utils.load_widgets(filename)
+        self.view = editor.GenericEditorView(
+            filename, root_widget_name='main_window')
 
         self.create_gui()
 
@@ -463,40 +455,90 @@ class SearchView(pluginmgr.View):
         # keep all the search results in the same session, this should
         # be cleared when we do a new search
         self.session = db.Session()
+        self.init_notes_page_in_notebook()
 
-    def update_notes(self):
+    def add_page_to_bottom_notebook(self, bottom_info):
+        glade_name = bottom_info['glade_name']
+        builder = utils.BuilderLoader.load(glade_name)
+        widgets = utils.BuilderWidgets(builder)
+        page = getattr(widgets, bottom_info['page_widget'])
+        # 2: detach it from parent (its container)
+        widgets.remove_parent(page)
+        # 3: create the label object
+        label = gtk.Label(bottom_info['name'])
+        # 4: add the page, non sensitive
+        self.view.widget_append_page('bottom_notebook', page, label)
+        # 5: store the values for later use
+        bottom_info['tree'] = page.get_children()[0]
+        bottom_info['label'] = label
+
+    def update_bottom_notebook(self):
         """
-        Update the notes treeview with the notes from the currently
-        selected item.
+        Update the bottom_notebook from the currently selected row.
+
+        bottom_notebook has one page per type of information. Every page
+        is registered by its plugin, which adds an entry to the
+        dictionary self.bottom_info.
+
+        the GtkNotebook pages are ScrolledWindow containing a TreeView,
+        this should have a model, and the ordered names of the fields to
+        be stored in the model is in bottom_info['fields_used'].
+
         """
         values = self.get_selected_values()
+        ## Only one should be selected
         if len(values) != 1:
-            self._notes_expanded = self.widgets.notes_expander.props.expanded
-            self.widgets.notes_expander.hide()
+            self.view.widget_set_visible('bottom_notebook', False)
             return
 
-        row = values[0]
-        if hasattr(row, 'notes') and isinstance(row.notes, list):
-            self.widgets.notes_expander.show()
-        else:
-            self.widgets.notes_expander.hide()
-            return
+        self.view.widget_set_visible('bottom_notebook', True)
+        row = values[0]  # the selected row
 
-        if len(row.notes) > 0:
-            self.widgets.notes_expander.props.sensitive = True
-            self.widgets.notes_expander.props.expanded = self._notes_expanded
-            model = gtk.ListStore(object)
-            for note in row.notes:
-                model.append([note])
-            self.widgets.notes_treeview.set_model(model)
-        else:
-            self.widgets.notes_expander.props.expanded = False
-            self.widgets.notes_expander.props.sensitive = False
+        ## loop over bottom_info plugin classes (eg: Tag)
+        for klass, bottom_info in self.bottom_info.items():
+            if 'label' not in bottom_info:  # late initialization
+                self.add_page_to_bottom_notebook(bottom_info)
+            label = bottom_info['label']
+            if not hasattr(klass, 'attached_to'):
+                logging.warn('class %s does not implement attached_to' % klass)
+                continue
+            objs = klass.attached_to(row)
+            model = bottom_info['tree'].get_model()
+            model.clear()
+            if len(objs) == 0:
+                label.set_use_markup(False)
+                label.set_label(bottom_info['name'])
+            else:
+                label.set_use_markup(True)
+                label.set_label('<b>%s</b>' % bottom_info['name'])
+                for obj in objs:
+                    model.append([getattr(obj, k)
+                                  for k in bottom_info['fields_used']])
+
+    def init_notes_page_in_notebook(self):
+        '''add notes page to bottom notebook
+
+        this is a temporary function, will be removed when notes are
+        implemented as a plugin
+
+        '''
+        page = self.view.widgets.notes_scrolledwindow
+        # detach it from parent (its container)
+        self.view.widgets.remove_parent(page)
+        # create the label object
+        label = gtk.Label('Notes')
+        self.view.widgets.bottom_notebook.append_page(page, label)
+        self.bottom_info[Note] = {
+            'fields_used': ['date', 'user', 'category', 'note'],
+            'tree': page.get_children()[0],
+            'label': label,
+            'name': _('Notes'),
+            }
 
     def update_infobox(self):
         '''
-        Sets the infobox according to the currently selected row
-        or remove the infobox is nothing is selected
+        Sets the infobox according to the currently selected row.
+        no infobox is shown if nothing is selected
         '''
 
         def set_infobox_from_row(row):
@@ -517,20 +559,20 @@ class SearchView(pluginmgr.View):
             if selected_type in self.infobox_cache.keys():
                 new_infobox = self.infobox_cache[selected_type]
             # if selected_type defines an infobox class:
-            elif selected_type in self.view_meta and \
-                    self.view_meta[selected_type].infobox is not None:
+            elif selected_type in self.row_meta and \
+                    self.row_meta[selected_type].infobox is not None:
                 logger.debug('%s defines infobox class %s'
                              % (selected_type,
-                                self.view_meta[selected_type].infobox))
+                                self.row_meta[selected_type].infobox))
                 # it might be in cache under different name
                 for ib in self.infobox_cache.values():
-                    if isinstance(ib, self.view_meta[selected_type].infobox):
+                    if isinstance(ib, self.row_meta[selected_type].infobox):
                         logger.debug('found same infobox under different name')
                         new_infobox = ib
                 # otherwise create one and put in the infobox_cache
                 if not new_infobox:
                     logger.debug('not found infobox, we make a new one')
-                    new_infobox = self.view_meta[selected_type].infobox()
+                    new_infobox = self.row_meta[selected_type].infobox()
                 self.infobox_cache[selected_type] = new_infobox
             logger.debug('created or retrieved infobox %s %s'
                          % (type(new_infobox), new_infobox))
@@ -578,8 +620,10 @@ class SearchView(pluginmgr.View):
         Update the infobox and switch the accelerators depending on the
         type of the row that the cursor points to.
         '''
+        ## update all forward-looking info boxes
         self.update_infobox()
-        self.update_notes()
+        ## update all backward-looking info boxes
+        self.update_bottom_notebook()
         pictures_view.floating_window.set_selection(self.get_selected_values())
 
         for accel, cb in self.installed_accels:
@@ -597,7 +641,7 @@ class SearchView(pluginmgr.View):
             return
         selected_type = type(selected[0])
 
-        for action in self.view_meta[selected_type].actions:
+        for action in self.row_meta[selected_type].actions:
             enabled = (len(selected) > 1 and action.multiselect) or \
                 (len(selected) <= 1 and action.singleselect)
             if not enabled:
@@ -700,7 +744,7 @@ class SearchView(pluginmgr.View):
                 self.results_view.set_cursor(0)
                 gobject.idle_add(lambda: self.results_view.scroll_to_cell(0))
 
-        self.update_notes()
+        self.update_bottom_notebook()
 
     def remove_children(self, model, parent):
         """
@@ -717,15 +761,12 @@ class SearchView(pluginmgr.View):
         Look up the table type of the selected row and if it has
         any children then add them to the row
         '''
-        expand = False
         model = view.get_model()
         row = model.get_value(treeiter, 0)
         view.collapse_row(path)
         self.remove_children(model, treeiter)
         try:
-            print 'on-test-expand-row:try'
-            kids = self.view_meta[type(row)].get_children(row)
-            print 'on-test-expand-row:ok:%s' % kids
+            kids = self.row_meta[type(row)].get_children(row)
             if len(kids) == 0:
                 return True
         except saexc.InvalidRequestError, e:
@@ -779,7 +820,6 @@ class SearchView(pluginmgr.View):
         # results by type in the same order
         groups = sorted(groups, key=lambda x: type(x[0]), reverse=True)
 
-        chunk_size = 100
         update_every = 200
         steps_so_far = 0
 
@@ -797,10 +837,10 @@ class SearchView(pluginmgr.View):
             parent = model.prepend(None, [obj])
             obj_type = type(obj)
             if check_for_kids:
-                kids = self.view_meta[obj_type].get_children(obj)
+                kids = self.row_meta[obj_type].get_children(obj)
                 if len(kids) > 0:
                     model.prepend(parent, ['-'])
-            elif self.view_meta[obj_type].children is not None:
+            elif self.row_meta[obj_type].children is not None:
                 model.prepend(parent, ['-'])
             #steps_so_far += chunk_size
             steps_so_far += 1
@@ -825,7 +865,7 @@ class SearchView(pluginmgr.View):
         check(parent is not None, "append_children(): need a parent")
         for k in kids:
             i = model.append(parent, [k])
-            if self.view_meta[type(k)].children is not None:
+            if self.row_meta[type(k)].children is not None:
                 model.append(i, ["_dummy"])
         return model
 
@@ -855,7 +895,7 @@ class SearchView(pluginmgr.View):
                 else:
                     self.session.add(value)
             try:
-                func = self.view_meta[type(value)].markup_func
+                func = self.row_meta[type(value)].markup_func
                 if func is not None:
                     r = func(value)
                     if isinstance(r, (list, tuple)):
@@ -927,7 +967,7 @@ class SearchView(pluginmgr.View):
             return False
         selected_type = selected_types.pop()
 
-        if not self.view_meta[selected_type].actions:
+        if not self.row_meta[selected_type].actions:
             # no actions
             return True
 
@@ -941,8 +981,8 @@ class SearchView(pluginmgr.View):
             menu = self.context_menu_cache[selected_type]
         except KeyError:
             menu = gtk.Menu()
-            for action in self.view_meta[selected_type].actions:
-                logger.debug('path: %s' %  action.get_accel_path())
+            for action in self.row_meta[selected_type].actions:
+                logger.debug('path: %s' % action.get_accel_path())
                 item = action.create_menu_item()
 
                 def on_activate(item, cb):
@@ -969,7 +1009,7 @@ class SearchView(pluginmgr.View):
             self.context_menu_cache[selected_type] = menu
 
         # enable/disable the menu items depending on the selection
-        for action in self.view_meta[selected_type].actions:
+        for action in self.row_meta[selected_type].actions:
             action.enabled = (len(selected) > 1 and action.multiselect) or \
                 (len(selected) <= 1 and action.singleselect)
 
@@ -1059,7 +1099,8 @@ class SearchView(pluginmgr.View):
             """
             if event.button == 3:
                 if (event.get_state() & gtk.gdk.CONTROL_MASK) == 0:
-                    path, _, _, _ = view.get_path_at_pos(int(event.x), int(event.y))
+                    path, _, _, _ = view.get_path_at_pos(int(event.x),
+                                                         int(event.y))
                     if not view.get_selection().path_is_selected(path):
                         return False
                 return True
@@ -1079,20 +1120,6 @@ class SearchView(pluginmgr.View):
 
         self.pane = self.widgets.search_hpane
         self.picpane = self.widgets.search_h2pane
-
-        # initialize the notes expander and tree view
-        self._notes_expanded = False
-
-        def on_expanded(expander, *args):
-            self._notes_expanded = expander.props.expanded
-            if not self._notes_expanded:
-                # don't use the position property so that when the
-                # expander is collapsed then the top pane will
-                # maximize itself
-                self.widgets.search_vpane.props.position_set = False
-
-        self.widgets.notes_expander.connect_after('activate', on_expanded)
-        self.init_notes_treeview()
 
         vbox = self.widgets.search_vbox
         self.widgets.remove_parent(vbox)
@@ -1116,39 +1143,20 @@ class SearchView(pluginmgr.View):
             treeiter = store.iter_next(treeiter)
             treeview.set_size_request(0, -1)
 
-    def init_notes_treeview(self):
-        def cell_data_func(col, cell, model, treeiter, prop):
-            row = model[treeiter][0]
-            val = getattr(row, prop)
-            if val:
-                if prop == 'date':
-                    format = prefs.prefs[prefs.date_format_pref]
-                    val = val.strftime(format)
-                cell.set_property('text', utils.utf8(val))
-            else:
-                cell.set_property('text', '')
 
-        date_cell = self.widgets.date_cell
-        date_col = self.widgets.date_column
-        date_col.set_cell_data_func(date_cell, cell_data_func, 'date')
+class Note:
+    """temporary patch before we implement Notes as a plugin
+    """
 
-        category_cell = self.widgets.category_cell
-        category_col = self.widgets.category_column
-        category_col.set_cell_data_func(category_cell, cell_data_func,
-                                        'category')
+    @classmethod
+    def attached_to(cls, obj):
+        '''return the list of notes connected to obj
+        '''
 
-        name_cell = self.widgets.name_cell
-        name_col = self.widgets.name_column
-        name_col.set_cell_data_func(name_cell, cell_data_func, 'user')
-
-        note_cell = self.widgets.note_cell
-        note_col = self.widgets.note_column
-        note_col.set_cell_data_func(note_cell, cell_data_func, 'note')
-
-        # TODO: need to better test to make sure this wraps the text properly
-        self.widgets.notes_treeview.\
-            connect_after("size-allocate", self.on_notes_size_allocation,
-                          note_col, note_cell)
+        try:
+            return obj.notes
+        except:
+            return []
 
 
 class StringColumn(gtk.TreeViewColumn):

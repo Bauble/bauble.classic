@@ -219,6 +219,8 @@ class ConnMgrPresenter(GenericEditorPresenter):
             if not valid:
                 self.view.run_message_dialog(msg, gtk.MESSAGE_ERROR)
             if valid:
+                ## picture root is stored in global setting
+                prefs.prefs[prefs.picture_root_pref] = settings['pictures']
                 self.save_current_to_prefs()
         elif response == gtk.RESPONSE_CANCEL or \
                 response == gtk.RESPONSE_DELETE_EVENT:
@@ -277,7 +279,7 @@ class ConnMgrPresenter(GenericEditorPresenter):
             self.connection_names.insert(0, name)
             self.connections[name] = self.get_params(new=name)
             self.view.combobox_prepend_text('name_combo', name)
-            self.view.expander_set_expanded('expander', True)
+            self.view.widget_set_expanded('expander', True)
             self.view.combobox_set_active('name_combo', 0)
 
     def save_current_to_prefs(self):
@@ -291,8 +293,7 @@ class ConnMgrPresenter(GenericEditorPresenter):
         conn_dict = self.connections
         conn_dict[self.connection_name] = params
         prefs.prefs[bauble.conn_list_pref] = conn_dict
-        if not prefs.testing:
-            prefs.prefs.save()
+        prefs.prefs.save()
 
     def compare_prefs_to_saved(self, name):
         """
