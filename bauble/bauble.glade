@@ -342,7 +342,6 @@
                       <packing>
                         <property name="expand">True</property>
                         <property name="fill">True</property>
-<<<<<<< Updated upstream
                         <property name="position">2</property>
                       </packing>
                     </child>
@@ -487,8 +486,6 @@
                       <packing>
                         <property name="expand">True</property>
                         <property name="fill">True</property>
-=======
->>>>>>> Stashed changes
                         <property name="position">3</property>
                       </packing>
                     </child>

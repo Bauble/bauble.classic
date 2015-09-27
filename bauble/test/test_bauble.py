@@ -44,19 +44,23 @@ Tests for the main bauble module.
 
 class EnumTests(BaubleTestCase):
 
-    def setUp(cls):
-        cls.enum_class = Table(
+    def setUp(self):
+        BaubleTestCase.setUp(self)
+        self.enum_class = Table(
             'test_enum_type', db.metadata,
             Column('id', Integer, primary_key=True),
             Column('value', Enum(values=['1', '2', '']), default=u''),
             )
-        cls.enum_class.create(db.engine)
+        self.enum_class.create(db.engine)
+
+    def tearDown(self):
+        BaubleTestCase.tearDown(self)
 
     def test_insert_low_level(self):
         table = self.enum_class.__table__
         db.engine.execute(table.insert(), {"id": 1})
 
-    def test_insert_alchemic(self):
+    def test_insert_zalchemic(self):
         Test = self.enum_class
         t = Test(id=1)
         self.session.add(t)
@@ -178,7 +182,11 @@ class BaubleTests(BaubleTestCase):
         head, tail = os.path.split(mod.__file__)
         files = glob.glob(os.path.join(head, '*.glade'))
         for f in files:
-            ids = check_dupids(f)
+            try:
+                ids = check_dupids(f)
+            except:
+                print 'error parsing', f
+                raise
             self.assert_(ids == [], "%s has duplicate ids: %s" % (f, str(ids)))
 
 
