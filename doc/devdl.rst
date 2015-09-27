@@ -24,10 +24,7 @@ the following command::
 For more information about other available code branches go to
 `bauble.classic on github <http://www.github.com/Bauble/bauble.classic>`_.
 
-<<<<<<< HEAD
-=======
 
->>>>>>> master
 Development Workflow
 =============================
 
@@ -68,8 +65,6 @@ work on the new branch. when ready, go to github, merge the branch with
 master, solve conflicts where necessary, delete the temporary branch.
 
 when ready for publication, merge master into the production line.
-<<<<<<< HEAD
-=======
 
 Plugins structure
 =============================
@@ -129,5 +124,3 @@ asks the pP to refresh the pV with whatever is relative to the selected row.
 
 Apart from setting the visibility of the various pV, nothing needs be
 disabled nor removed: an invisible pV cannot trigger events!
-
->>>>>>> master

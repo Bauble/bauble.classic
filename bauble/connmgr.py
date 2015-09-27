@@ -286,8 +286,10 @@ class ConnMgrPresenter(GenericEditorPresenter):
         """add current named params to saved connections
         """
         if self.connection_name is None:
+            logger.warn('save_current_to_prefs: connection name is None')
             return
         if bauble.conn_list_pref not in prefs.prefs:
+            # very first run
             prefs.prefs[bauble.conn_list_pref] = {}
         params = copy.copy(self.get_params())
         conn_dict = self.connections

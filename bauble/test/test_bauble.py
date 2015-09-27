@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 from sqlalchemy import (
-    Column, Integer)
+    Column, Integer, Table)
 
 import bauble
 import bauble.db as db
@@ -42,23 +42,28 @@ Tests for the main bauble module.
 """
 
 
-class BaubleTests(BaubleTestCase):
+class EnumTests(BaubleTestCase):
 
-    def test_enum_type(self):
-        """
-        Test bauble.types.Enum
-        """
-        class Test(db.Base):
-            __tablename__ = 'test_enum_type'
-            id = Column(Integer, primary_key=True)
-            value = Column(Enum(values=['1', '2', '']), default=u'')
-        table = Test.__table__
-        table.create(bind=db.engine)
-#         t = Test(id=1)
-#         self.session.add(t)
-#         self.session.commit()
+    def setUp(cls):
+        cls.enum_class = Table(
+            'test_enum_type', db.metadata,
+            Column('id', Integer, primary_key=True),
+            Column('value', Enum(values=['1', '2', '']), default=u''),
+            )
+        cls.enum_class.create(db.engine)
+
+    def test_insert_low_level(self):
+        table = self.enum_class.__table__
         db.engine.execute(table.insert(), {"id": 1})
-        #debug(t.value)
+
+    def test_insert_alchemic(self):
+        Test = self.enum_class
+        t = Test(id=1)
+        self.session.add(t)
+        self.session.flush()
+
+
+class BaubleTests(BaubleTestCase):
 
     def test_date_type(self):
         """
@@ -222,7 +227,8 @@ class MVPTests(BaubleTestCase):
   <requires lib="gtk+" version="2.24"/>
   <!-- interface-naming-policy toplevel-contextual -->
   <object class="GtkTextBuffer" id="tag_desc_textbuffer">
-    <signal name="changed" handler="on_tag_desc_textbuffer_changed" swapped="no"/>
+    <signal name="changed" handler="on_tag_desc_textbuffer_changed" \
+swapped="no"/>
   </object>
 </interface>
 ''')
