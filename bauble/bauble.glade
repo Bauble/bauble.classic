@@ -311,8 +311,17 @@
                                       </packing>
                                     </child>
                                     <child>
-                                      <object class="GtkExpander" id="bottom_notebook">
-                                      </object>
+                      <object class="GtkNotebook" id="bottom_notebook">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="tab_pos">left</property>
+                        <child>
+                          <placeholder/>
+                        </child>
+                        <child type="tab">
+                          <placeholder/>
+                        </child>
+                      </object>
                                       <packing>
                                         <property name="resize">False</property>
                                         <property name="shrink">False</property>
