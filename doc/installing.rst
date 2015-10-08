@@ -66,6 +66,29 @@ Installing on Linux
    You might need solve dependencies. How to do so, depends on which Linux
    flavour you are using. Check with your distribution documentation.
 
+.. note:: There is an experimental shorter procedure to install bauble at
+   least on debian/ubuntu, using the debian package `bauble-installer
+   <https://github.com/Bauble/bauble.classic/raw/master/packages/bauble-installer_1.0-1.deb>`_.
+   After downloading the package, open a terminal, do the following::
+
+     sudo apt-get update
+     sudo dpkg -i bauble-installer_1.0-1.deb
+     sudo apt-get -f install
+     bauble-install
+
+   To later remove Bauble, you delete the virtual environment, then
+   uninstall ``bauble-installer``::
+
+     rm -fr ~/.virtualenvs/bacl
+     sudo apt-get remove bauble-installer
+
+   As with the above step-by-step procedure, if you want any database
+   connector other than sqlite3, you should install them yourself, either
+   globally or in the virtual environment::
+
+     source ~/.virtualenvs/bacl/bin/activate
+     pip install -U MySQL-python
+
 .. rubric:: Next...
 
 :ref:`connecting`.
