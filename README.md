@@ -16,14 +16,13 @@ Bauble
 what is Bauble (classic)
 ------------------------
 
-At its heart Bauble is a framework for creating database
-applications.  In its distributed form Bauble is an application to
-manage plant records and specifically living collections.  It is
-used among others by Belize Botanic Gardens to manage their live
-collections.  Included by default is RBG Kew's Family and Genera
-list from Vascular Plant Families and Genera compiled by
-R. K. Brummitt and published by the Royal Botanic Gardens, Kew in
-1992 used by permission from RBG Kew.
+At its heart Bauble is a framework for creating database applications.  In
+its distributed form Bauble is an application to manage plant records and
+specifically living collections.  It is used among others by the Quito
+Botanical Garden and the Lovett Pinetum to manage their live collections.
+Included by default is RBG Kew's Family and Genera list from Vascular Plant
+Families and Genera compiled by R. K. Brummitt and published by the Royal
+Botanic Gardens, Kew in 1992 used by permission from RBG Kew.
 
 All code contained as part of the Bauble package is licenced under
 the GNU GPLv2+.
