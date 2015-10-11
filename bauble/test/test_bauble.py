@@ -33,7 +33,7 @@ from sqlalchemy import (
 
 import bauble
 import bauble.db as db
-from bauble.btypes import Enum
+from bauble.btypes import Enum, EnumError
 from bauble.test import BaubleTestCase, check_dupids
 import bauble.meta as meta
 
@@ -42,24 +42,80 @@ Tests for the main bauble module.
 """
 
 
+class EnumTests(BaubleTestCase):
+
+    table = None
+
+    def setUp(self):
+        BaubleTestCase.setUp(self)
+        if self.__class__.table is None:
+            class Test(db.Base):
+                __tablename__ = 'test_enum_type'
+                id = Column(Integer, primary_key=True)
+                value = Column(Enum(values=['1', '2', '']), default=u'')
+            self.__class__.Test = Test
+            self.__class__.table = Test.__table__
+            self.table.create(bind=db.engine)
+
+    def tearDown(self):
+        BaubleTestCase.tearDown(self)
+
+    def test_insert_low_level(self):
+        db.engine.execute(self.table.insert(), {"id": 1})
+
+    def test_insert_alchemic(self):
+        t = self.Test(id=1)
+        self.session.add(t)
+        self.session.flush()
+
+    def test_insert_by_value_ok(self):
+        t = self.Test(value=u'1')
+        self.session.add(t)
+        self.session.flush()
+
+    def test_insert_by_value_wrong_value_seen_late(self):
+        from sqlalchemy.exc import StatementError
+        t = self.Test(value=u'33')
+        self.session.add(t)
+        self.assertRaises(StatementError, self.session.flush)
+
+    def function_creating_enum(self, name, values, **kwargs):
+        self.Table = type(
+            'test_table_' + name, (db.Base, ),
+            {'__tablename__': 'test_enum_type_' + name,
+             'id': Column(Integer, primary_key=True),
+             'value': Column(Enum(values=values, **kwargs), default=u''),
+             })
+        self.table = self.Table.__table__
+        self.table.create(bind=db.engine)
+
+    def test_bad_enum(self):
+        self.function_creating_enum('zero', ['1', '2', '3', ])
+        self.assertRaises(EnumError, self.function_creating_enum, 'one', [])
+        self.assertRaises(EnumError, self.function_creating_enum, 'two', None)
+        self.assertRaises(EnumError, self.function_creating_enum, 'three',
+                          [1, ''])  # int can't be
+        self.assertRaises(EnumError, self.function_creating_enum, 'four',
+                          ['1', '1', ])  # same value twice
+        self.assertRaises(EnumError, self.function_creating_enum, 'five',
+                          ['1', [], None])  # strings please
+        self.assertRaises(EnumError, self.function_creating_enum, 'six',
+                          ['1', '2'], empty_to_none=True)  # no empty
+
+    def test_empty_to_none(self):
+        self.function_creating_enum('seven', ['1', None], empty_to_none=True)
+        t = self.Table(value=u'1')
+        self.session.add(t)
+        t = self.Table(value='')
+        self.session.add(t)
+        self.session.flush()
+        q = self.session.query(self.Table).filter_by(value='')
+        self.assertEquals(q.all(), [])
+        q = self.session.query(self.Table).filter_by(value=None)
+        self.assertEquals(q.all(), [t])
+
+
 class BaubleTests(BaubleTestCase):
-
-    def test_enum_type(self):
-        """
-        Test bauble.types.Enum
-        """
-        class Test(db.Base):
-            __tablename__ = 'test_enum_type'
-            id = Column(Integer, primary_key=True)
-            value = Column(Enum(values=['1', '2', '']), default=u'')
-        table = Test.__table__
-        table.create(bind=db.engine)
-#         t = Test(id=1)
-#         self.session.add(t)
-#         self.session.commit()
-        db.engine.execute(table.insert(), {"id": 1})
-        #debug(t.value)
-
     def test_date_type(self):
         """
         Test bauble.types.Date

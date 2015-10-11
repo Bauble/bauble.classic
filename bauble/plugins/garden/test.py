@@ -234,8 +234,9 @@ class ContactTests(GardenTestCase):
 
     #def itest_contact_editor(self):
     #    """
-    #    Interactively test the PlantEditor
+    #    Interactively test the ContactEditor
     #    """
+    #    raise SkipTest('separate view from presenter, then test presenter')
     #    loc = self.create(Contact, name=u'some contact')
     #    editor = ContactEditor(model=loc)
     #    editor.start()
@@ -309,10 +310,7 @@ class PlantTests(GardenTestCase):
         """
         Test creating multiple plants with the plant editor.
         """
-        try:
-            import gtk
-        except ImportError:
-            raise SkipTest('could not import gtk')
+        import gtk
 
         # use our own plant because PlantEditor.commit_changes() will
         # only work in bulk mode when the plant is in session.new
@@ -356,7 +354,7 @@ class PlantTests(GardenTestCase):
         """
         Interactively test the PlantEditor
         """
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         for plant in self.session.query(Plant):
             self.session.delete(plant)
         for location in self.session.query(Location):
@@ -374,10 +372,7 @@ class PlantTests(GardenTestCase):
         editor.start()
 
     def test_branch_editor(self):
-        try:
-            import gtk
-        except ImportError:
-            raise SkipTest('could not import gtk')
+        import gtk
 
         # test argument checks
         #
@@ -731,7 +726,7 @@ class PropagationTests(GardenTestCase):
         """
         Interactively test the PropagationEditor
         """
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         from bauble.plugins.garden.propagation import PropagationEditor
         propagation = Propagation()
         #propagation.prop_type = u'UnrootedCutting'
@@ -869,7 +864,7 @@ class SourceTests(GardenTestCase):
         self.assert_(self.session.query(SourceDetail).get(source_detail_id))
 
     def test_details_editor(self):
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         e = SourceDetailEditor()
         e.start()
 
@@ -1063,7 +1058,7 @@ class AccessionTests(GardenTestCase):
         """
         Interactively test the AccessionEditor
         """
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         #donor = self.create(Donor, name=u'test')
         sp2 = Species(genus=self.genus, sp=u'species')
         sp2.synonyms.append(self.species)
@@ -1216,7 +1211,7 @@ class LocationTests(GardenTestCase):
         """
         Interactively test the PlantEditor
         """
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         loc = self.create(Location, name=u'some site', code=u'STE')
         editor = LocationEditor(model=loc)
         editor.start()
@@ -1262,7 +1257,7 @@ class InstitutionTests(GardenTestCase):
     # InstututionEditor and checks that it doesn't leak memory
 
     def test_editor(self):
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         e = InstitutionEditor()
         e.start()
 

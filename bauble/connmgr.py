@@ -166,7 +166,7 @@ class ConnMgrPresenter(GenericEditorPresenter):
         last_folder, bn = os.path.split(previously)
         self.view.run_file_chooser_dialog(
             _("Choose a file..."), None,
-            action=gtk.FILE_CHOOSER_ACTION_CREATE_FOLDER,
+            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
             buttons=(gtk.STOCK_OK, gtk.RESPONSE_ACCEPT,
                      gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL),
             last_folder=last_folder, target='pictureroot_entry')
@@ -176,7 +176,7 @@ class ConnMgrPresenter(GenericEditorPresenter):
         last_folder, bn = os.path.split(previously)
         self.view.run_file_chooser_dialog(
             _("Choose a file..."), None,
-            action=gtk.FILE_CHOOSER_ACTION_CREATE_FOLDER,
+            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
             buttons=(gtk.STOCK_OK, gtk.RESPONSE_ACCEPT,
                      gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL),
             last_folder=last_folder, target='pictureroot2_entry')
@@ -279,7 +279,7 @@ class ConnMgrPresenter(GenericEditorPresenter):
             self.connection_names.insert(0, name)
             self.connections[name] = self.get_params(new=name)
             self.view.combobox_prepend_text('name_combo', name)
-            self.view.expander_set_expanded('expander', True)
+            self.view.widget_set_expanded('expander', True)
             self.view.combobox_set_active('name_combo', 0)
 
     def save_current_to_prefs(self):
@@ -293,8 +293,7 @@ class ConnMgrPresenter(GenericEditorPresenter):
         conn_dict = self.connections
         conn_dict[self.connection_name] = params
         prefs.prefs[bauble.conn_list_pref] = conn_dict
-        if not prefs.testing:
-            prefs.prefs.save()
+        prefs.prefs.save()
 
     def compare_prefs_to_saved(self, name):
         """

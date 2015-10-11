@@ -40,6 +40,8 @@ from bauble.plugins.plants.genus import \
 from bauble.plugins.plants.geography import Geography, get_species_in_geography
 from bauble.test import BaubleTestCase, check_dupids
 
+from functools import partial
+
 import logging
 logging.basicConfig()
 #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
@@ -268,6 +270,11 @@ class PlantTestCase(BaubleTestCase):
         super(PlantTestCase, self).tearDown()
 
 
+def mockfunc(msg=None, name=None, caller=None, result=False):
+    caller.invoked.append((name, msg))
+    return result
+
+
 class FamilyTests(PlantTestCase):
     """
     Test for Family and FamilySynonym
@@ -390,6 +397,127 @@ class FamilyTests(PlantTestCase):
             'FamilyEditorPresenter not deleted'
         assert utils.gc_objects_by_type('FamilyEditorView') == [], \
             'FamilyEditorView not deleted'
+
+    def test_remove_callback_no_genera_no_confirm(self):
+        # T_0
+        f5 = Family(family=u'Arecaceae')
+        self.session.add(f5)
+        self.session.flush()
+        self.invoked = []
+
+        # action
+        utils.yes_no_dialog = partial(
+            mockfunc, name='yes_no_dialog', caller=self, result=False)
+        utils.message_details_dialog = partial(
+            mockfunc, name='message_details_dialog', caller=self)
+        from bauble.plugins.plants.family import remove_callback
+        result = remove_callback([f5])
+        self.session.flush()
+
+        # effect
+        print self.invoked
+        self.assertFalse('message_details_dialog' in
+                         [f for (f, m) in self.invoked])
+        self.assertTrue(('yes_no_dialog', u'Are you sure you want to '
+                         'remove the family <i>Arecaceae</i>?')
+                        in self.invoked)
+        self.assertEquals(result, None)
+        q = self.session.query(Family).filter_by(family=u"Arecaceae")
+        matching = q.all()
+        self.assertEquals(matching, [f5])
+
+    def test_remove_callback_no_genera_confirm(self):
+        # T_0
+        f5 = Family(family=u'Arecaceae')
+        self.session.add(f5)
+        self.session.flush()
+        self.invoked = []
+
+        # action
+        utils.yes_no_dialog = partial(
+            mockfunc, name='yes_no_dialog', caller=self, result=True)
+        utils.message_details_dialog = partial(
+            mockfunc, name='message_details_dialog', caller=self)
+        from bauble.plugins.plants.family import remove_callback
+        result = remove_callback([f5])
+        self.session.flush()
+
+        # effect
+        print self.invoked
+        self.assertFalse('message_details_dialog' in
+                         [f for (f, m) in self.invoked])
+        self.assertTrue(('yes_no_dialog', u'Are you sure you want to '
+                         'remove the family <i>Arecaceae</i>?')
+                        in self.invoked)
+
+        self.assertEquals(result, True)
+        q = self.session.query(Family).filter_by(family=u"Arecaceae")
+        matching = q.all()
+        self.assertEquals(matching, [])
+
+    def test_remove_callback_with_genera_no_confirm(self):
+        # T_0
+        f5 = Family(family=u'Arecaceae')
+        gf5 = Genus(family=f5, genus=u'Areca')
+        self.session.add_all([f5, gf5])
+        self.session.flush()
+        self.invoked = []
+
+        # action
+        utils.yes_no_dialog = partial(
+            mockfunc, name='yes_no_dialog', caller=self, result=False)
+        utils.message_details_dialog = partial(
+            mockfunc, name='message_details_dialog', caller=self)
+        from bauble.plugins.plants.family import remove_callback
+        result = remove_callback([f5])
+        self.session.flush()
+
+        # effect
+        print self.invoked
+        self.assertFalse('message_details_dialog' in
+                         [f for (f, m) in self.invoked])
+        self.assertTrue(('yes_no_dialog', u'The family <i>Arecaceae</i> has '
+                         '1 genera.  Are you sure you want to remove it?')
+                        in self.invoked)
+        self.assertEquals(result, None)
+        q = self.session.query(Family).filter_by(family=u"Arecaceae")
+        matching = q.all()
+        self.assertEquals(matching, [f5])
+        q = self.session.query(Genus).filter_by(genus=u"Areca")
+        matching = q.all()
+        self.assertEquals(matching, [gf5])
+
+    def test_remove_callback_with_genera_confirm_cascade(self):
+        # T_0
+        f5 = Family(family=u'Arecaceae')
+        gf5 = Genus(family=f5, genus=u'Areca')
+        self.session.add_all([f5, gf5])
+        self.session.flush()
+        self.invoked = []
+
+        # action
+        utils.yes_no_dialog = partial(
+            mockfunc, name='yes_no_dialog', caller=self, result=True)
+        utils.message_details_dialog = partial(
+            mockfunc, name='message_details_dialog', caller=self)
+        from bauble.plugins.plants.family import remove_callback
+        result = remove_callback([f5])
+        self.session.flush()
+
+        # effect
+        print self.invoked
+        self.assertFalse('message_details_dialog' in
+                         [f for (f, m) in self.invoked])
+        self.assertTrue(('yes_no_dialog', u'The family <i>Arecaceae</i> has '
+                         '1 genera.  Are you sure you want to remove it?')
+                        in self.invoked)
+        self.assertEquals(result, True)
+        q = self.session.query(Family).filter_by(family=u"Arecaceae")
+        matching = q.all()
+        self.assertEquals(matching, [])
+        q = self.session.query(Genus).filter_by(genus=u"Areca")
+        matching = q.all()
+        self.assertEquals(matching, [])
 
 
 class GenusTests(PlantTestCase):
@@ -1314,8 +1442,7 @@ class PresenterTest(PlantTestCase):
 
 
 from bauble.plugins.plants.species import (
-    species_markup_func, vernname_markup_func,
-    species_get_kids, vernname_get_kids)
+    species_markup_func, vernname_markup_func)
 
 
 class GlobalFunctionsTest(PlantTestCase):
@@ -1354,8 +1481,8 @@ class GlobalFunctionsTest(PlantTestCase):
 
     def test_species_get_kids(self):
         mVa = self.session.query(Species).filter_by(id=1).one()
-        self.assertEquals(species_get_kids(mVa), [])
+        self.assertEquals(partial(db.natsort, 'accessions')(mVa), [])
 
     def test_vernname_get_kids(self):
         vName = self.session.query(VernacularName).filter_by(id=1).one()
-        self.assertEquals(vernname_get_kids(vName), [])
+        self.assertEquals(partial(db.natsort, 'species.accessions')(vName), [])
