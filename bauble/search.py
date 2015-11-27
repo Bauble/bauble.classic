@@ -159,15 +159,31 @@ class IdentifierToken(object):
 
 class IdentExpressionToken(object):
     def __init__(self, t):
+        logger.debug('IdentExpressionToken::__init__(%s)' % t)
         self.op = t[0][1]
-        self.operation = {'>': lambda x, y: x > y,
-                          '<': lambda x, y: x < y,
-                          '>=': lambda x, y: x >= y,
-                          '<=': lambda x, y: x <= y,
-                          '=': lambda x, y: x == y,
+
+        def not_implemented_yet(x, y):
+            # raise an exception
+            raise NotImplementedError
+
+        # cfr: SearchParser.binop
+        # = == != <> < <= > >= not like contains has ilike icontains ihas is
+        self.operation = {'=': lambda x, y: x == y,
+                          '==': lambda x, y: x == y,
+                          'is': lambda x, y: x == y,
                           '!=': lambda x, y: x != y,
-                          'is': lambda x, y: x is y,
-                          'like': lambda x, y: utils.ilike(x, '%s' % y)
+                          '<>': lambda x, y: x != y,
+                          'not': lambda x, y: x != y,
+                          '<': lambda x, y: x < y,
+                          '<=': lambda x, y: x <= y,
+                          '>': lambda x, y: x > y,
+                          '>=': lambda x, y: x >= y,
+                          'like': lambda x, y: utils.ilike(x, '%s' % y),
+                          'contains': not_implemented_yet,
+                          'has': not_implemented_yet,
+                          'ilike': lambda x, y: utils.ilike(x, '%s' % y),
+                          'icontains': not_implemented_yet,
+                          'ihas': not_implemented_yet,
                           }[self.op]
         self.operands = t[0][0::2]  # every second object is an operand
 
@@ -177,9 +193,10 @@ class IdentExpressionToken(object):
     def evaluate(self, env):
         q, a = self.operands[0].evaluate(env)
         if self.operands[1].express() == set():
-            if self.op in ('is', '='):
+            # check against the empty set
+            if self.op in ('is', '=', '=='):
                 return q.filter(~a.any())
-            elif self.op in ('!='):
+            elif self.op in ('not', '<>', '!='):
                 return q.filter(a.any())
         clause = lambda x: self.operation(a, x)
         return q.filter(clause(self.operands[1].express()))
@@ -321,6 +338,28 @@ class StatementAction(object):
         return repr(self.content)
 
 
+class BinomialNameAction(object):
+    """created when the parser hits a binomial_name token.
+
+    Searching using binomial names returns one or more species objects.
+    """
+
+    def __init__(self, t):
+        self.genus_epithet = t[0]
+        self.species_epithet = t[1]
+
+    def __repr__(self):
+        return "%s %s" % (self.genus_epithet, self.species_epithet)
+
+    def invoke(self, search_strategy):
+        from bauble.plugins.plants.genus import Genus
+        from bauble.plugins.plants.species import Species
+        result = search_strategy._session.query(Species).filter(
+            Species.sp.startswith(self.species_epithet)).join(Genus).filter(
+            Genus.genus.startswith(self.genus_epithet)).all()
+        return set(result)
+
+
 class DomainExpressionAction(object):
     """created when the parser hits a domain_expression token.
 
@@ -362,13 +401,15 @@ class DomainExpressionAction(object):
 
         mapper = class_mapper(cls)
 
-        if self.cond in ('like', 'ilike', 'contains', 'icontains', 'has',
-                         'ihas'):
+        if self.cond in ('like', 'ilike'):
+            condition = lambda col: \
+                lambda val: utils.ilike(mapper.c[col], '%s' % val)
+        elif self.cond in ('contains', 'icontains', 'has', 'ihas'):
             condition = lambda col: \
                 lambda val: utils.ilike(mapper.c[col], '%%%s%%' % val)
         elif self.cond == '=':
             condition = lambda col: \
-                lambda val: utils.ilike(mapper.c[col], utils.utf8(val))
+                lambda val: mapper.c[col] == utils.utf8(val)
         else:
             condition = lambda col: \
                 lambda val: mapper.c[col].op(self.cond)(val)
@@ -442,7 +483,7 @@ class ValueListAction(object):
 from pyparsing import (
     Word, alphas8bit, removeQuotes, delimitedList, Regex,
     OneOrMore, oneOf, alphas, alphanums, Group, Literal,
-    CaselessLiteral, WordStart, WordEnd,
+    CaselessLiteral, WordStart, WordEnd, srange,
     stringEnd, Keyword, quotedString,
     infixNotation, opAssoc, Forward)
 
@@ -486,6 +527,12 @@ class SearchParser(object):
         | (domain + binop + domain_values + stringEnd)
         ).setParseAction(DomainExpressionAction)('domain_expression')
 
+    caps = srange("[A-Z]")
+    lowers = caps.lower()
+    binomial_name = (
+        Word(caps, lowers) + Word(lowers)
+        ).setParseAction(BinomialNameAction)('binomial_name')
+
     AND_ = WordStart() + (CaselessLiteral("AND") | Literal("&&")) + WordEnd()
     OR_ = WordStart() + (CaselessLiteral("OR") | Literal("||")) + WordEnd()
     NOT_ = WordStart() + (CaselessLiteral("NOT") | Literal('!')) + WordEnd()
@@ -512,6 +559,7 @@ class SearchParser(object):
 
     statement = (query('query')
                  | domain_expression('domain')
+                 | binomial_name('binomial')
                  | value_list('value_list')
                  ).setParseAction(StatementAction)('statement')
 
@@ -833,7 +881,7 @@ class ExpressionRow(object):
         self.table.attach(self.prop_button, 1, 2, row_number, row_number+1)
 
         self.cond_combo = gtk.combo_box_new_text()
-        conditions = ['=', '!=', '<', '<=', '>', '>=', 'is', 'is not', 'like',
+        conditions = ['=', '!=', '<', '<=', '>', '>=', 'is', 'not', 'like',
                       'ilike']
         map(self.cond_combo.append_text, conditions)
         self.cond_combo.set_active(0)

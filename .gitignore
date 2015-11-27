@@ -1,6 +1,7 @@
 issues.txt
 .bzr
 doc/.build
+doc/*.txt
 .tx
 *~
 *pyc
@@ -32,3 +33,6 @@ doc/locale/
 bauble/plugins/plants/ipni.org/
 .build/
 cover/
+.project
+.pydevproject
+.settings/

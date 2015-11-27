@@ -251,6 +251,27 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
             self.view.connect_after(widget_name, 'changed', refresh)
         self.view.connect_after('sp_hybrid_check', 'toggled', refresh)
 
+    def on_sp_species_entry_insert_text(self, entry, text, length, position):
+        '''remove all spaces from epithet
+        '''
+
+        # get position from entry, can't trust position parameter
+        position = entry.get_position()
+        result = text.replace(' ', '')
+        if result != '':
+            # Insert the text at cursor (block handler to avoid recursion).
+            entry.handler_block_by_func(self.on_sp_species_entry_insert_text)
+            entry.insert_text(result, position)
+            entry.handler_unblock_by_func(self.on_sp_species_entry_insert_text)
+            # Set the new cursor position immediately after the inserted text.
+            new_pos = position + len(result)
+            # Can't modify the cursor position from within this handler,
+            # so we add it to be done at the end of the main loop:
+            gobject.idle_add(entry.set_position, new_pos)
+
+        # We handled the signal so stop it from being processed further.
+        entry.stop_emission("insert_text")
+
     def refresh_fullname_label(self, widget=None):
         '''
         set the value of sp_fullname_label to either '--' if there
@@ -274,10 +295,11 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
             logger.debug("looking for %s %s, found %s"
                          % (genus, epithet, omonym))
             if omonym in [None, self.model]:
+                ## should not warn, so check warning and remove
                 if self.omonym_box is not None:
                     self.view.remove_box(self.omonym_box)
                     self.omonym_box = None
-            else:
+            elif self.omonym_box is None:  # should warn, but not twice
                 msg = _("This binomial name is already in your collection"
                         ", as %s.\n\n"
                         "Are you sure you want to insert it again?") % \
