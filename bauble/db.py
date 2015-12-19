@@ -298,7 +298,7 @@ def create(import_defaults=True):
 
     """
 
-##    debug('entered db.create()')
+    logger.debug('entered db.create()')
     if not engine:
         raise ValueError('engine is None, not connected to a database')
     import bauble
@@ -474,6 +474,7 @@ class DefiningPictures:
                 pixbuf = gtk.gdk.pixbuf_new_from_file(
                     os.path.join(prefs.prefs[prefs.picture_root_pref],
                                  filename))
+                pixbuf = pixbuf.apply_embedded_orientation()
                 scale_x = pixbuf.get_width() / 400
                 scale_y = pixbuf.get_height() / 400
                 scale = max(scale_x, scale_y, 1)
@@ -601,6 +602,7 @@ class Serializable:
             logger.debug('returning updated existing %s' % result)
             return result
 
+        logger.debug("going to create new %s with %s" % (cls, keys))
         result = cls(**keys)
         session.add(result)
         session.flush()

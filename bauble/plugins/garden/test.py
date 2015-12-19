@@ -51,8 +51,12 @@ from bauble.plugins.plants.family import Family
 from bauble.plugins.plants.genus import Genus
 from bauble.plugins.plants.species_model import Species
 import bauble.plugins.plants.test as plants_test
-from bauble.plugins.garden.institution import Institution, InstitutionEditor
-import bauble.prefs as prefs
+from bauble.plugins.garden.institution import Institution, InstitutionPresenter
+from bauble import prefs
+
+from bauble.meta import BaubleMeta
+
+from bauble.plugins.plants.species_model import _remove_zws as remove_zws
 
 
 accession_test_data = ({'id': 1, 'code': u'2001.1', 'species_id': 1},
@@ -169,8 +173,9 @@ def test_duplicate_ids():
 
 class GardenTestCase(BaubleTestCase):
 
-    def __init__(self, *args):
-        super(GardenTestCase, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(GardenTestCase, self).__init__(*args, **kwargs)
+        prefs.testing = True
 
     def setUp(self):
         super(GardenTestCase, self).setUp()
@@ -203,49 +208,53 @@ class GardenTestCase(BaubleTestCase):
         return obj
 
 
+''' - there is no "Contact" class, is there?
+
 class ContactTests(GardenTestCase):
 
     def __init__(self, *args):
         super(ContactTests, self).__init__(*args)
 
-    # def test_delete(self):
-    #     acc = self.create(Accession, species=self.species, code=u'1')
-    #     contact = Contact(name=u'name')
-    #     donation = Donation()
-    #     donation.contact = contact
-    #     acc.source = donation
-    #     self.session.commit()
-    #     self.session.close()
-    #     # test that we can't delete a contact if it has corresponding
-    #     # donations
-    #     import bauble
-    #     session = db.Session()
-    #     contact = session.query(Contact).filter_by(name=u'name').one()
+    def test_delete(self):
+        acc = self.create(Accession, species=self.species, code=u'1')
+        contact = Contact(name=u'name')
+        donation = Donation()
+        donation.contact = contact
+        acc.source = donation
+        self.session.commit()
+        self.session.close()
+        # test that we can't delete a contact if it has corresponding
+        # donations
+        import bauble
+        session = db.Session()
+        contact = session.query(Contact).filter_by(name=u'name').one()
 
-    #     shouldn't be allowed to delete contact if it has donations, what
-    #     is happening here is that when deleting the contact the
-    #     corresponding donations.contact_id's are being be set to null
-    #     which isn't allowed by the scheme....is this the best we can do?
-    #     or can we get some sort of error when creating a dangling
-    #     reference
+        # shouldn't be allowed to delete contact if it has donations, what
+        # is happening here is that when deleting the contact the
+        # corresponding donations.contact_id's are being be set to null
+        # which isn't allowed by the scheme....is this the best we can do?
+        # or can we get some sort of error when creating a dangling
+        # reference
 
-    #     session.delete(contact)
-    #     self.assertRaises(DBAPIError, session.commit)
+        session.delete(contact)
+        self.assertRaises(DBAPIError, session.commit)
 
-    #def itest_contact_editor(self):
-    #    """
-    #    Interactively test the PlantEditor
-    #    """
-    #    loc = self.create(Contact, name=u'some contact')
-    #    editor = ContactEditor(model=loc)
-    #    editor.start()
-    #    del editor
-    #    assert utils.gc_objects_by_type('ContactEditor') == [], \
-    #        'ContactEditor not deleted'
-    #    assert utils.gc_objects_by_type('ContactEditorPresenter') == [], \
-    #        'ContactEditorPresenter not deleted'
-    #    assert utils.gc_objects_by_type('ContactEditorView') == [], \
-    #        'ContactEditorView not deleted'
+    def itest_contact_editor(self):
+        """
+        Interactively test the ContactEditor
+        """
+        raise SkipTest('separate view from presenter, then test presenter')
+        loc = self.create(Contact, name=u'some contact')
+        editor = ContactEditor(model=loc)
+        editor.start()
+        del editor
+        assert utils.gc_objects_by_type('ContactEditor') == [], \
+            'ContactEditor not deleted'
+        assert utils.gc_objects_by_type('ContactEditorPresenter') == [], \
+            'ContactEditorPresenter not deleted'
+        assert utils.gc_objects_by_type('ContactEditorView') == [], \
+            'ContactEditorView not deleted'
+'''
 
 
 class PlantTests(GardenTestCase):
@@ -309,10 +318,7 @@ class PlantTests(GardenTestCase):
         """
         Test creating multiple plants with the plant editor.
         """
-        try:
-            import gtk
-        except ImportError:
-            raise SkipTest('could not import gtk')
+        import gtk
 
         # use our own plant because PlantEditor.commit_changes() will
         # only work in bulk mode when the plant is in session.new
@@ -356,7 +362,7 @@ class PlantTests(GardenTestCase):
         """
         Interactively test the PlantEditor
         """
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         for plant in self.session.query(Plant):
             self.session.delete(plant)
         for location in self.session.query(Location):
@@ -374,10 +380,7 @@ class PlantTests(GardenTestCase):
         editor.start()
 
     def test_branch_editor(self):
-        try:
-            import gtk
-        except ImportError:
-            raise SkipTest('could not import gtk')
+        import gtk
 
         # test argument checks
         #
@@ -731,7 +734,7 @@ class PropagationTests(GardenTestCase):
         """
         Interactively test the PropagationEditor
         """
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         from bauble.plugins.garden.propagation import PropagationEditor
         propagation = Propagation()
         #propagation.prop_type = u'UnrootedCutting'
@@ -858,7 +861,7 @@ class SourceTests(GardenTestCase):
         self.accession.source = None  # tests the accessions source
         self.session.commit()
 
-        # the Colection and Propagation should be
+        # the Collection and Propagation should be
         # deleted since they are specific to the source
         self.assert_(not self.session.query(Collection).get(coll_id))
         self.assert_(not self.session.query(Propagation).get(prop_id))
@@ -869,7 +872,7 @@ class SourceTests(GardenTestCase):
         self.assert_(self.session.query(SourceDetail).get(source_detail_id))
 
     def test_details_editor(self):
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         e = SourceDetailEditor()
         e.start()
 
@@ -892,24 +895,25 @@ class AccessionTests(GardenTestCase):
         acc = self.create(Accession, species=self.species, code=u'1')
         s = u'Echinocactus grusonii'
         sp_str = acc.species_str()
-        self.assert_(s == sp_str, '%s == %s' % (s, sp_str))
+        self.assertEquals(remove_zws(sp_str), s)
+
         acc.id_qual = '?'
         s = u'Echinocactus grusonii(?)'
         sp_str = acc.species_str()
-        self.assert_(s == sp_str, '%s == %s' % (s, sp_str))
+        self.assertEquals(remove_zws(sp_str), s)
 
         acc.id_qual = 'aff.'
         acc.id_qual_rank = u'sp'
         s = u'Echinocactus aff. grusonii'
         sp_str = acc.species_str()
-        self.assert_(s == sp_str, '%s == %s' % (s, sp_str))
+        self.assertEquals(remove_zws(sp_str), s)
 
         # here species.infrasp is None but we still allow the string
         acc.id_qual = 'cf.'
         acc.id_qual_rank = 'infrasp'
         s = u'Echinocactus grusonii cf.'  # ' None'
         sp_str = acc.species_str()
-        self.assert_(s == sp_str, '%s == %s' % (s, sp_str))
+        self.assertEquals(remove_zws(sp_str), s)
 
         # species.infrasp is still none but these just get pasted on
         # the end so it doesn't matter
@@ -917,20 +921,20 @@ class AccessionTests(GardenTestCase):
         acc.id_qual_rank = 'infrasp'
         s = u'Echinocactus grusonii(incorrect)'
         sp_str = acc.species_str()
-        self.assert_(s == sp_str, '%s == %s' % (s, sp_str))
+        self.assertEquals(remove_zws(sp_str), s)
 
         acc.id_qual = 'forsan'
         acc.id_qual_rank = u'sp'
         s = u'Echinocactus grusonii(forsan)'
         sp_str = acc.species_str()
-        self.assert_(s == sp_str, '%s == %s' % (s, sp_str))
+        self.assertEquals(remove_zws(sp_str), s)
 
         acc.species.set_infrasp(1, u'cv.', u'Cultivar')
         acc.id_qual = u'cf.'
         acc.id_qual_rank = u'infrasp'
         s = u"Echinocactus grusonii cf. 'Cultivar'"
         sp_str = acc.species_str()
-        self.assert_(s == sp_str, '%s == %s' % (s, sp_str))
+        self.assertEquals(remove_zws(sp_str), s)
 
         # test that the cached string is returned
 
@@ -938,8 +942,7 @@ class AccessionTests(GardenTestCase):
         # on dirty species
         self.session.commit()
         s2 = acc.species_str()
-        assert id(sp_str) == id(s2), '%s(%s) == %s(%s)' % (sp_str, id(sp_str),
-                                                           s2, id(s2))
+        self.assertEquals(id(sp_str), id(s2))
 
         # this used to test that if the id_qual was set but the
         # id_qual_rank wasn't then we would get an error. now we just
@@ -1032,6 +1035,7 @@ class AccessionTests(GardenTestCase):
         assert acc.source.plant_propagation_id == plant_prop_id
 
     def test_accession_editor(self):
+        raise SkipTest('Problem cannot be found in presenter')
         acc = Accession(code=u'code', species=self.species)
         self.editor = AccessionEditor(acc)
         update_gui()
@@ -1040,7 +1044,7 @@ class AccessionTests(GardenTestCase):
         # make sure there is a problem if the species entry text isn't
         # a species string
         widgets.acc_species_entry.set_text('asdasd')
-        assert self.editor.presenter.problems
+        self.assertTrue(self.editor.presenter.problems)
 
         # make sure the problem is removed if the species entry text
         # is set to a species string
@@ -1063,7 +1067,7 @@ class AccessionTests(GardenTestCase):
         """
         Interactively test the AccessionEditor
         """
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         #donor = self.create(Donor, name=u'test')
         sp2 = Species(genus=self.genus, sp=u'species')
         sp2.synonyms.append(self.species)
@@ -1139,11 +1143,7 @@ class VerificationTests(GardenTestCase):
         ver.species = acc.species
         ver.prev_species = acc.species
         acc.verifications.append(ver)
-        try:
-            self.session.commit()
-        except Exception, e:
-            logger.debug(e)
-            self.session.rollback()
+        self.session.commit()
         self.assert_(ver in acc.verifications)
         self.assert_(ver in self.session)
 
@@ -1216,7 +1216,7 @@ class LocationTests(GardenTestCase):
         """
         Interactively test the PlantEditor
         """
-        raise SkipTest('Not Implemented')
+        raise SkipTest('separate view from presenter, then test presenter')
         loc = self.create(Location, name=u'some site', code=u'STE')
         editor = LocationEditor(model=loc)
         editor.start()
@@ -1258,14 +1258,130 @@ class LocationTests(GardenTestCase):
 
 class InstitutionTests(GardenTestCase):
 
-    # TODO: create a non interactive tests that starts the
-    # InstututionEditor and checks that it doesn't leak memory
+    def test_init__9_props(self):
+        o = Institution()
+        o.name = 'Bauble'
+        o.write()
+        fields = self.session.query(BaubleMeta).filter(
+            utils.ilike(BaubleMeta.name, 'inst_%')).all()
+        self.assertEquals(len(fields), 9)  # 9 props define the institution
 
-    def test_editor(self):
-        raise SkipTest('Not Implemented')
-        e = InstitutionEditor()
-        e.start()
+    def test_init__one_institution(self):
+        o = Institution()
+        o.name = 'Fictive'
+        o.write()
+        o.name = 'Bauble'
+        o.write()
+        fieldObjects = self.session.query(BaubleMeta).filter(
+            utils.ilike(BaubleMeta.name, 'inst_%')).all()
+        self.assertEquals(len(fieldObjects), 9)
 
+    def test_init__always_initialized(self):
+        o = Institution()
+        o.name = 'Fictive'
+        o.write()
+        u = Institution()
+        self.assertEquals(u.name, u'Fictive')
+        o.name = 'Bauble'
+        o.write()
+        u = Institution()
+        self.assertEquals(u.name, u'Bauble')
+
+    def test_init__has_all_attributes(self):
+        o = Institution()
+        for a in ('name', 'abbreviation', 'code', 'contact',
+                  'technical_contact', 'email', 'tel', 'fax', 'address'):
+            self.assertTrue(hasattr(o, a))
+
+    def test_write__None_stays_None(self):
+        o = Institution()
+        o.name = 'Bauble'
+        o.email = 'bauble@anche.no'
+        o.write()
+        fieldObjects = self.session.query(BaubleMeta).filter(
+            utils.ilike(BaubleMeta.name, 'inst_%')).all()
+        fields = dict((i.name[5:], i.value)
+                      for i in fieldObjects
+                      if i.value is not None)
+        self.assertEquals(fields['name'], u'Bauble')
+        self.assertEquals(fields['email'], u'bauble@anche.no')
+        self.assertEquals(len(fields), 2)
+
+
+class InstitutionPresenterTests(GardenTestCase):
+
+    def test_can_create_presenter(self):
+        from bauble.editor import MockView
+        view = MockView()
+        o = Institution()
+        presenter = InstitutionPresenter(o, view)
+        self.assertEquals(presenter.view, view)
+
+    def test_empty_name_is_a_problem(self):
+        from bauble.editor import MockView
+        view = MockView()
+        o = Institution()
+        o.name = ''
+        InstitutionPresenter(o, view)
+        self.assertTrue('add_box' in view.invoked)
+        self.assertEquals(len(view.boxes), 1)
+
+    def test_initially_empty_name_then_specified_is_ok(self):
+        from bauble.editor import MockView
+        view = MockView()
+        o = Institution()
+        o.name = ''
+        presenter = InstitutionPresenter(o, view)
+        presenter.view.widget_set_value('inst_name', 'bauble')
+        presenter.on_non_empty_text_entry_changed('inst_name')
+        self.assertTrue('remove_box' in view.invoked)
+        self.assertEquals(o.name, 'bauble')
+        self.assertEquals(presenter.view.boxes, set())
+
+    def test_no_email_means_no_registering(self):
+        from bauble.editor import MockView
+        view = MockView(sensitive={'inst_register': None,
+                                   'inst_ok': None})
+        o = Institution()
+        o.name = 'bauble'
+        o.email = ''
+        InstitutionPresenter(o, view)
+        self.assertFalse(view.widget_get_sensitive('inst_register'))
+
+    def test_invalid_email_means_no_registering(self):
+        from bauble.editor import MockView
+        view = MockView(sensitive={'inst_register': None,
+                                   'inst_ok': None})
+        o = Institution()
+        o.name = 'bauble'
+        o.email = 'mario'
+        InstitutionPresenter(o, view)
+        self.assertFalse(view.widget_get_sensitive('inst_register'))
+
+    def test_no_email_means_can_register(self):
+        from bauble.editor import MockView
+        view = MockView(sensitive={'inst_register': None,
+                                   'inst_ok': None})
+        o = Institution()
+        o.name = 'bauble'
+        o.email = 'bauble@anche.no'
+        InstitutionPresenter(o, view)
+        self.assertTrue(view.widget_get_sensitive('inst_register'))
+
+    def test_(self):
+        from bauble.utils import desktop
+        from bauble.test import mockfunc
+        from functools import partial
+        self.invoked = []
+        desktop.open = partial(mockfunc, name='desktop.open', caller=self)
+        from bauble.editor import MockView
+        view = MockView(sensitive={'inst_register': None,
+                                   'inst_ok': None})
+        o = Institution()
+        p = InstitutionPresenter(o, view)
+        p.on_inst_register_clicked()
+        self.assertTrue(('desktop.open', 'mailto:bauble@anche.no') in
+                        self.invoked)
 
 # latitude: deg[0-90], min[0-59], sec[0-59]
 # longitude: deg[0-180], min[0-59], sec[0-59]
@@ -1593,21 +1709,20 @@ class PlantSearchTest(GardenTestCase):
         setUp_data()
 
     def test_searchbyplantcode(self):
-        raise SkipTest('should really work, please inspect')
-        mapper_search = search.get_strategy('MapperSearch')
+        mapper_search = search.get_strategy('PlantSearch')
 
         results = mapper_search.search('1.1.1', self.session)
         self.assertEquals(len(results), 1)
         p = results.pop()
         ex = self.session.query(Plant).filter(Plant.id == 1).first()
         self.assertEqual(p, ex)
-        results = mapper_search.search('2.2.1', self.session)
+        results = mapper_search.search('1.2.1', self.session)
         logger.debug(results)
         self.assertEquals(len(results), 1)
         p = results.pop()
         ex = self.session.query(Plant).filter(Plant.id == 2).first()
         self.assertEqual(p, ex)
-        results = mapper_search.search('2.2.2', self.session)
+        results = mapper_search.search('1.2.2', self.session)
         self.assertEquals(len(results), 1)
         p = results.pop()
         ex = self.session.query(Plant).filter(Plant.id == 3).first()
@@ -1630,6 +1745,23 @@ class PlantSearchTest(GardenTestCase):
             Accession.id == 2).first()
         logger.debug("%s, %s" % (a, expect))
         self.assertEqual(a, expect)
+
+    def test_plant_from_dict(self):
+        p = Plant.retrieve_or_create(
+            self.session, {'object': 'plant',
+                           'accession': u'2001.1',
+                           'code': u'1'},
+            create=False)
+        self.assertFalse(p is None)
+
+    def test_plant_note_from_dict(self):
+        p = PlantNote.retrieve_or_create(
+            self.session, {'object': 'plant_note',
+                           'plant': u'2001.1.1',
+                           'note': u'1',
+                           'category': u'RBW'},
+            create=True)
+        self.assertFalse(p is None)
 
 
 from bauble.plugins.garden.accession import get_next_code

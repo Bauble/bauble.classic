@@ -35,6 +35,7 @@ import weakref
 from sqlalchemy.orm.session import object_session
 from sqlalchemy.exc import DBAPIError
 
+from types import StringTypes
 import bauble
 from bauble.i18n import _
 from bauble.prefs import prefs
@@ -68,6 +69,7 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
         self.session = object_session(model)
         self._dirty = False
         self.omonym_box = None
+        self.species_space = False  # do not accept spaces in epithet
         self.init_fullname_widgets()
         self.vern_presenter = VernacularNamePresenter(self)
         self.synonyms_presenter = SynonymsPresenter(self)
@@ -123,16 +125,20 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
 
         # called when a genus is selected from the genus completions
         def on_select(value):
-            #debug('on select: %s' % value)
+            logger.debug('on select: %s' % value)
+            if isinstance(value, StringTypes):
+                value = self.session.query(Genus).filter(
+                    Genus.genus == value).first()
             for kid in self.view.widgets.message_box_parent.get_children():
                 self.view.widgets.remove_parent(kid)
             self.set_model_attr('genus', value)
-            if value:
-                ## is value considered a synonym?
-                syn = self.session.query(GenusSynonym).filter(
-                    GenusSynonym.synonym_id == value.id).first()
-            if not value or not syn:
-                ## no value or value is not a synonym: fine
+            if not value:  # no choice is a fine choice
+                return
+            ## is value considered a synonym?
+            syn = self.session.query(GenusSynonym).filter(
+                GenusSynonym.synonym_id == value.id).first()
+            if not syn:
+                # chosen value is not a synonym, also fine
                 return
 
             ## value is a synonym: user alert needed
@@ -145,9 +151,9 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
             def on_response(button, response):
                 self.view.remove_box(box)
                 if response:
-                    self.view.widgets.sp_genus_entry.\
-                        set_text(utils.utf8(syn.genus))
                     self.set_model_attr('genus', syn.genus)
+                    self.refresh_view()
+                    self.refresh_fullname_label()
                 else:
                     self.set_model_attr('genus', value)
             box = self.view.add_message_box(utils.MESSAGE_BOX_YESNO)
@@ -155,6 +161,8 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
             box.on_response = on_response
             box.show()
             self.view.add_box(box)
+
+        on_select(self.model.genus)
 
         self.assign_completions_handler('sp_genus_entry',  # 'genus',
                                         gen_get_completions,
@@ -202,7 +210,7 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
         del self.notes_presenter.view
         del self.infrasp_presenter.view
 
-    def dirty(self):
+    def is_dirty(self):
         return (self._dirty or
                 self.pictures_presenter.is_dirty() or
                 self.vern_presenter.is_dirty() or
@@ -251,6 +259,33 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
             self.view.connect_after(widget_name, 'changed', refresh)
         self.view.connect_after('sp_hybrid_check', 'toggled', refresh)
 
+    def on_sp_species_entry_insert_text(self, entry, text, length, position):
+        '''remove all spaces from epithet
+        '''
+
+        # get position from entry, can't trust position parameter
+        position = entry.get_position()
+        if text.count(u'×'):
+            self.species_space = True
+        if text.count(u'*'):
+            self.species_space = True
+            text = text.replace(u'*', u" × ")
+        if self.species_space is False:
+            text = text.replace(' ', '')
+        if text != '':
+            # Insert the text at cursor (block handler to avoid recursion).
+            entry.handler_block_by_func(self.on_sp_species_entry_insert_text)
+            entry.insert_text(text, position)
+            entry.handler_unblock_by_func(self.on_sp_species_entry_insert_text)
+            # Set the new cursor position immediately after the inserted text.
+            new_pos = position + len(text)
+            # Can't modify the cursor position from within this handler,
+            # so we add it to be done at the end of the main loop:
+            gobject.idle_add(entry.set_position, new_pos)
+
+        # We handled the signal so stop it from being processed further.
+        entry.stop_emission("insert_text")
+
     def refresh_fullname_label(self, widget=None):
         '''
         set the value of sp_fullname_label to either '--' if there
@@ -274,14 +309,15 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
             logger.debug("looking for %s %s, found %s"
                          % (genus, epithet, omonym))
             if omonym in [None, self.model]:
+                ## should not warn, so check warning and remove
                 if self.omonym_box is not None:
                     self.view.remove_box(self.omonym_box)
                     self.omonym_box = None
-            else:
+            elif self.omonym_box is None:  # should warn, but not twice
                 msg = _("This binomial name is already in your collection"
                         ", as %s.\n\n"
                         "Are you sure you want to insert it again?") % \
-                    Species.str(omonym, authors=True)
+                    Species.str(omonym, authors=True, markup=True)
 
                 def on_response(button, response):
                     self.view.remove_box(self.omonym_box)
@@ -315,9 +351,8 @@ class SpeciesEditorPresenter(editor.GenericEditorPresenter):
                 value = self.model.genus
             else:
                 value = getattr(self.model, field)
-#            debug('%s, %s, %s' % (widget, field, value))
-#            self.view.widget_set_value(widget, value,
-#                                       default=self.defaults.get(field, None))
+            logger.debug('%s, %s, %s(%s)'
+                         % (widget, field, type(value), value))
             self.view.widget_set_value(widget, value)
 
         utils.set_widget_value(self.view.widgets.sp_habit_comboentry,
@@ -528,15 +563,16 @@ class DistributionPresenter(editor.GenericEditorPresenter):
         self.remove_menu.popup(None, None, None, event.button, event.time)
 
     def on_activate_add_menu_item(self, widget, geoid=None):
-        from bauble.plugins.plants.species_model import Geography
+        logger.debug('on_activate_add_menu_item %s %s' % (widget, geoid))
+        from bauble.plugins.plants.geography import Geography
         geo = self.session.query(Geography).filter_by(id=geoid).one()
         # check that this geography isn't already in the distributions
         if geo in [d.geography for d in self.model.distribution]:
-#            debug('%s already in %s' % (geo, self.model))
+            logger.debug('%s already in %s' % (geo, self.model))
             return
         dist = SpeciesDistribution(geography=geo)
         self.model.distribution.append(dist)
-#        debug([str(d) for d in self.model.distribution])
+        logger.debug([str(d) for d in self.model.distribution])
         self._dirty = True
         self.refresh_view()
         self.parent_ref().refresh_sensitivity()
@@ -928,6 +964,11 @@ class SpeciesEditorView(editor.GenericEditorView):
         self.widgets.notebook.set_current_page(0)
         self.restore_state()
         self.boxes = set()
+        w = self.get_window()
+        w.set_geometry_hints(
+            max_width=gtk.gdk.screen_get_default().get_width())
+        w.set_position(gtk.WIN_POS_NONE)
+        print gtk.gdk.screen_get_default().get_width(), gtk.WIN_POS_CENTER_ON_PARENT
 
     def get_window(self):
         '''

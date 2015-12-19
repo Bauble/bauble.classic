@@ -431,6 +431,7 @@ class SearchView(pluginmgr.View):
         '''
         the constructor
         '''
+        logger.debug('SearchView::__init__')
         super(SearchView, self).__init__()
         filename = os.path.join(paths.lib_dir(), 'bauble.glade')
         self.widgets = utils.load_widgets(filename)
@@ -455,9 +456,32 @@ class SearchView(pluginmgr.View):
         # keep all the search results in the same session, this should
         # be cleared when we do a new search
         self.session = db.Session()
-        self.init_notes_page_in_notebook()
+        self.add_notes_page_to_bottom_notebook()
+
+    def add_notes_page_to_bottom_notebook(self):
+        '''add notebook page for notes
+
+        this is a temporary function, will be removed when notes are
+        implemented as a plugin. then notes will be added with the
+        generic add_page_to_bottom_notebook.
+
+        '''
+        page = self.view.widgets.notes_scrolledwindow
+        # detach it from parent (its container)
+        self.view.widgets.remove_parent(page)
+        # create the label object
+        label = gtk.Label('Notes')
+        self.view.widgets.bottom_notebook.append_page(page, label)
+        self.bottom_info[Note] = {
+            'fields_used': ['date', 'user', 'category', 'note'],
+            'tree': page.get_children()[0],
+            'label': label,
+            'name': _('Notes'),
+            }
 
     def add_page_to_bottom_notebook(self, bottom_info):
+        '''add notebook page for a plugin class
+        '''
         glade_name = bottom_info['glade_name']
         builder = utils.BuilderLoader.load(glade_name)
         widgets = utils.BuilderWidgets(builder)
@@ -514,26 +538,6 @@ class SearchView(pluginmgr.View):
                 for obj in objs:
                     model.append([getattr(obj, k)
                                   for k in bottom_info['fields_used']])
-
-    def init_notes_page_in_notebook(self):
-        '''add notes page to bottom notebook
-
-        this is a temporary function, will be removed when notes are
-        implemented as a plugin
-
-        '''
-        page = self.view.widgets.notes_scrolledwindow
-        # detach it from parent (its container)
-        self.view.widgets.remove_parent(page)
-        # create the label object
-        label = gtk.Label('Notes')
-        self.view.widgets.bottom_notebook.append_page(page, label)
-        self.bottom_info[Note] = {
-            'fields_used': ['date', 'user', 'category', 'note'],
-            'tree': page.get_children()[0],
-            'label': label,
-            'name': _('Notes'),
-            }
 
     def update_infobox(self):
         '''
@@ -782,8 +786,8 @@ class SearchView(pluginmgr.View):
             logger.debug(traceback.format_exc())
             return True
         else:
-            print 'on-test-expand-row:append:%s' % kids
-            self.append_children(model, treeiter, kids)
+            self.append_children(
+                model, treeiter, sorted(kids, key=utils.natsort_key))
             return False
 
     def populate_results(self, results, check_for_kids=False):
@@ -1022,6 +1026,7 @@ class SearchView(pluginmgr.View):
         reexpand the rows to the previous state where possible and
         update the infobox.
         """
+        logger.debug('SearchView::reset_view')
         model, paths = self.results_view.get_selection().get_selected_rows()
         ref = None
         try:
@@ -1057,7 +1062,7 @@ class SearchView(pluginmgr.View):
         '''
         expand the row on activation
         '''
-        logger.debug("on_view_row_activated %s %s %s %s"
+        logger.debug("SearchView::on_view_row_activated %s %s %s %s"
                      % (view, path, column, data))
         view.expand_row(path, False)
 
@@ -1065,6 +1070,7 @@ class SearchView(pluginmgr.View):
         '''
         create the interface
         '''
+        logger.debug('SearchView::create_gui')
         # create the results view and info box
         self.results_view = self.widgets.results_treeview
 

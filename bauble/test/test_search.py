@@ -21,7 +21,7 @@
 # test_search.py
 #
 import unittest
-from nose import SkipTest
+#from nose import SkipTest
 
 import logging
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ from pyparsing import ParseException
 
 import bauble.db as db
 import bauble.search as search
+from bauble import prefs
 from bauble.test import BaubleTestCase
 
 
@@ -233,6 +234,7 @@ class SearchParserTests(unittest.TestCase):
 class SearchTests(BaubleTestCase):
     def __init__(self, *args):
         super(SearchTests, self).__init__(*args)
+        prefs.testing = True
 
     def setUp(self):
         super(SearchTests, self).setUp()
@@ -270,11 +272,7 @@ class SearchTests(BaubleTestCase):
         self.assertIsNone(mapper_search)
 
     def test_search_by_values(self):
-        """
-        Test searching by values with MapperSearch
-
-        test whether the MapperSearch works, not a test on plugins.
-        """
+        "search by values"
         mapper_search = search.get_strategy('MapperSearch')
         self.assertTrue(isinstance(mapper_search, search.MapperSearch))
 
@@ -290,12 +288,7 @@ class SearchTests(BaubleTestCase):
         g = list(results)[0]
         self.assertEqual(g.id, self.genus.id)
 
-    def test_search_by_expression(self):
-        """
-        Test searching by expression with MapperSearch
-
-        test whether the MapperSearch works, not a test on plugins.
-        """
+    def test_search_by_expression_family_eq(self):
         mapper_search = search.get_strategy('MapperSearch')
         self.assertTrue(isinstance(mapper_search, search.MapperSearch))
 
@@ -306,12 +299,68 @@ class SearchTests(BaubleTestCase):
         self.assertTrue(isinstance(f, self.Family))
         self.assertEquals(f.id, self.family.id)
 
+    def test_search_by_expression_genus_eq_1match(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+
         # search for genus by domain
         results = mapper_search.search('gen=genus1', self.session)
         self.assertEquals(len(results), 1)
         g = list(results)[0]
         self.assertTrue(isinstance(g, self.Genus))
         self.assertEqual(g.id, self.genus.id)
+
+    def test_search_by_expression_genus_eq_nomatch(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+
+        # search for genus by domain
+        results = mapper_search.search('genus=g', self.session)
+        self.assertEquals(len(results), 0)
+
+    def test_search_by_expression_genus_like_nomatch(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+
+        # search for genus by domain
+        results = mapper_search.search('genus like gen', self.session)
+        self.assertEquals(len(results), 0)
+        # search for genus by domain
+        results = mapper_search.search('genus like nus%', self.session)
+        self.assertEquals(len(results), 0)
+        # search for genus by domain
+        results = mapper_search.search('genus like %gen', self.session)
+        self.assertEquals(len(results), 0)
+
+    def test_search_by_expression_genus_like_contains_eq(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+        Family = self.Family
+        f2 = Family(family=u'family2')
+        f3 = Family(family=u'afamily3')
+        f4 = Family(family=u'fam4')
+        self.session.add_all([f3, f2, f4])
+        self.session.commit()
+
+        # search for family by domain
+        results = mapper_search.search('family contains fam', self.session)
+        self.assertEquals(len(results), 4)  # all do
+        results = mapper_search.search('family like f%', self.session)
+        self.assertEquals(len(results), 3)  # three start by f
+        results = mapper_search.search('family like af%', self.session)
+        self.assertEquals(len(results), 1)  # one starts by af
+        results = mapper_search.search('family like fam', self.session)
+        self.assertEquals(len(results), 0)
+        results = mapper_search.search('family = fam', self.session)
+        self.assertEquals(len(results), 0)
+        results = mapper_search.search('family = fam4', self.session)
+        self.assertEquals(len(results), 1)  # exact name match
+        results = mapper_search.search('family = Fam4', self.session)
+        self.assertEquals(len(results), 0)  # = is case sensitive
+        results = mapper_search.search('family like Fam4', self.session)
+        self.assertEquals(len(results), 1)  # like is case insensitive
+        results = mapper_search.search('family contains FAM', self.session)
+        self.assertEquals(len(results), 4)  # they case insensitively do
 
     def test_search_by_query11(self):
         "query with MapperSearch, single table, single test"
@@ -568,10 +617,15 @@ class SearchTests(BaubleTestCase):
         Family = self.Family
         Genus = self.Genus
         family2 = Family(family=u'family2')
-        genus2 = Genus(family=family2, genus=u'genus2')
+        family3 = Family(family=u'afamily3')
+        genus21 = Genus(family=family2, genus=u'genus21')
+        genus31 = Genus(family=family3, genus=u'genus31')
+        genus32 = Genus(family=family3, genus=u'genus32')
+        genus33 = Genus(family=family3, genus=u'genus33')
         f3 = Family(family=u'fam3')
-        g3 = Genus(family=f3, genus=u'genus3')
-        self.session.add_all([family2, genus2, f3, g3])
+        g3 = Genus(family=f3, genus=u'genus31')
+        self.session.add_all([family3, family2, genus21, genus31, genus32,
+                              genus33, f3, g3])
         self.session.commit()
 
         mapper_search = search.get_strategy('MapperSearch')
@@ -580,7 +634,7 @@ class SearchTests(BaubleTestCase):
         # test partial string matches on a query
         s = 'genus where family.family like family%'
         results = mapper_search.search(s, self.session)
-        self.assert_(set(results) == set([self.genus, genus2]))
+        self.assertEquals(set(results), set([self.genus, genus21]))
 
     def test_search_by_query22_underscore(self):
         """can use fields starting with an underscore"""
@@ -661,28 +715,6 @@ class SearchTests(BaubleTestCase):
         results = mapper_search.search(s, self.session)
         self.assertEqual(results, [g3])
 
-    def test_search_by_query_binomial(self):
-        """can use genus_species binomial identification"""
-
-        raise SkipTest
-        Family = self.Family
-        Genus = self.Genus
-        from bauble.plugins.plants.species_model import Species
-        family2 = Family(family=u'family2')
-        g2 = Genus(family=family2, genus=u'genus2')
-        f3 = Family(family=u'fam3', qualifier=u's. lat.')
-        g3 = Genus(family=f3, genus=u'Ixora')
-        sp = Species(sp=u"coccinea", genus=g3)
-        self.session.add_all([family2, g2, f3, g3, sp])
-        self.session.commit()
-
-        mapper_search = search.get_strategy('MapperSearch')
-        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
-
-        s = '"Ixora coccinea"'
-        results = mapper_search.search(s, self.session)
-        self.assertEqual(results, set([sp]))
-
     def test_search_by_query_vernacural(self):
         """can find species by vernacular name"""
 
@@ -705,6 +737,83 @@ class SearchTests(BaubleTestCase):
         s = "rojo"
         results = mapper_search.search(s, self.session)
         self.assertEqual(results, set([sp]))
+
+
+class BinomialSearchTests(BaubleTestCase):
+    def __init__(self, *args):
+        super(BinomialSearchTests, self).__init__(*args)
+
+    def setUp(self):
+        super(BinomialSearchTests, self).setUp()
+        db.engine.execute('delete from genus')
+        db.engine.execute('delete from family')
+        from bauble.plugins.plants.family import Family
+        from bauble.plugins.plants.genus import Genus
+        from bauble.plugins.plants.species import Species
+        f1 = Family(family=u'family1', qualifier=u's. lat.')
+        g1 = Genus(family=f1, genus=u'genus1')
+        f2 = Family(family=u'family2')
+        g2 = Genus(family=f2, genus=u'genus2')
+        f3 = Family(family=u'fam3', qualifier=u's. lat.')
+        g3 = Genus(family=f3, genus=u'Ixora')
+        sp = Species(sp=u"coccinea", genus=g3)
+        sp2 = Species(sp=u"peruviana", genus=g3)
+        sp3 = Species(sp=u"chinensis", genus=g3)
+        g4 = Genus(family=f3, genus=u'Pachystachys')
+        sp4 = Species(sp=u'coccinea', genus=g4)
+        self.session.add_all([f1, f2, g1, g2, f3, g3, sp, sp2, sp3, g4, sp4])
+        self.session.commit()
+        self.ixora, self.ic, self.pc = g3, sp, sp4
+
+    def tearDown(self):
+        super(BinomialSearchTests, self).tearDown()
+
+    def test_binomial_complete(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+
+        s = 'Ixora coccinea'  # matches Ixora coccinea
+        results = mapper_search.search(s, self.session)
+        self.assertEqual(results, set([self.ic]))
+
+    def test_binomial_incomplete(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+
+        s = 'Ix cocc'  # matches Ixora coccinea
+        results = mapper_search.search(s, self.session)
+        self.assertEqual(results, set([self.ic]))
+
+    def test_binomial_no_match(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+
+        s = 'Cosito inesistente'  # matches nothing
+        results = mapper_search.search(s, self.session)
+        self.assertEqual(results, set())
+
+    def test_almost_binomial(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+
+        s = 'ixora coccinea'  # matches Ixora, I.coccinea, P.coccinea
+        results = mapper_search.search(s, self.session)
+        self.assertEqual(results, set([self.ixora, self.ic, self.pc]))
+
+    def test_cultivar_also_matched(self):
+        mapper_search = search.get_strategy('MapperSearch')
+        self.assertTrue(isinstance(mapper_search, search.MapperSearch))
+
+        from bauble.plugins.plants.species import Species
+        from bauble.plugins.plants.genus import Genus
+        g3 = self.session.query(Genus).filter(Genus.genus == u'Ixora').one()
+        sp5 = Species(sp=u"coccinea", genus=g3,
+                      infrasp1_rank=u'cv.', infrasp1=u'Nora Grant')
+        self.session.add_all([sp5])
+        self.session.commit()
+        s = 'Ixora coccinea'  # matches I.coccinea and Nora Grant
+        results = mapper_search.search(s, self.session)
+        self.assertEqual(results, set([self.ic, sp5]))
 
 
 class QueryBuilderTests(BaubleTestCase):

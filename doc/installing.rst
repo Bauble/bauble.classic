@@ -1,5 +1,5 @@
-Installation
---------------
+Introduction
+-----------------------
 
 bauble.classic is a cross-platform program and it will run on unix machines
 like Linux and MacOSX, as well as on Windows.
@@ -20,7 +20,7 @@ its dependencies by itself.
           content.
 
 Installing on Linux
-===================
+-------------------
 
 #. Download the `devinstall.sh` script and run it::
 
@@ -94,7 +94,7 @@ Installing on Linux
 :ref:`connecting`.
 
 Installing on MacOSX
-====================
+--------------------
 
 Being MacOSX a unix environment, most things will work the same as on Linux
 (sort of).
@@ -139,7 +139,7 @@ script for it. Read the above Linux instructions, follow them, enjoy.
 :ref:`connecting`.
 
 Installing on Windows
-=====================
+---------------------
 
 The Windows installer used to be a "batteries-included" installer,
 installing everything needed to run Bauble.  The current maintainer
@@ -161,7 +161,8 @@ welcome.
 
 .. _Direct link to download git: https://github.com/git-for-windows/git/releases/download/v2.5.2.windows.1/Git-2.5.2-32-bit.exe
 .. _Direct link to download Python: https://www.python.org/ftp/python/2.7.10/python-2.7.10.msi
-.. _Direct link to download PyGTK: http://ftp.gnome.org/pub/GNOME/binaries/win32/pygtk/2.24/pygtk-all-in-one-2.24.2.win32-py2.6.msi
+.. _direct link do download lxml: https://pypi.python.org/packages/2.7/l/lxml/lxml-3.4.4.win32-py2.7.exe#md5=f69924a6a43d992bf91daf8b0cb25db2
+.. _Direct link to download PyGTK: http://ftp.gnome.org/pub/GNOME/binaries/win32/pygtk/2.24/pygtk-all-in-one-2.24.2.win32-py2.7.msi
 .. _Direct link to download psycopg2: http://www.stickpeople.com/projects/python/win-psycopg/2.6.1/psycopg2-2.6.1.win32-py2.7-pg9.4.4-release.exe
 
 the installation steps on Windows:
@@ -203,6 +204,23 @@ the installation steps on Windows:
 
    .. image:: images/screenshots/pygtk1.png
 
+#. (Windows 8.x) please consider this additional step. It is possibly
+   necessary to avoid the following error on Windows 8.1 installations::
+
+    Building without Cython.
+    ERROR: 'xslt-config' is not recognized as an internal or external command,
+    operable program or batch file.
+
+   If you skip this step and can confirm you get the error, please inform us.
+
+   You can download lxml from::
+
+    https://pypi.python.org/pypi/lxml/3.4.4
+
+   Remember you need the 32 bit version, for Python 2.7.
+
+   `direct link do download lxml`_
+
 #. (optional) download and install a database connector other than
    ``sqlite3``. 
 
@@ -228,6 +246,16 @@ the installation steps on Windows:
    you can also run ``devinstall.bat`` passing it as argument the numerical
    part of the production line you want to follow.
 
+#. the last installation step creates the Bauble group and shortcuts in the
+   Windows Start Menu, for all users. To do so, you need run a script with
+   administrative rights. The script is called ``devinstall-finalize.bat``,
+   it is right in your HOME folder, and has been created at the previous
+   step.
+
+   right-click on it, select run as administrator, confirm you want it to
+   make changes to your computer. These changes are in the Start Menu only:
+   create the Bauble group, place the Bauble shortcut.
+
 #. download the batch file you will use to stay up-to-date with the
    production line you chose to follow::
 
@@ -239,12 +267,6 @@ the installation steps on Windows:
 
    any time you want to update your installation, just start the command
    prompt and run ``bauble-update.bat``
-
-#. you can now start bauble using the ``bauble.lnk`` shortcut that the
-   installation procedure copies to the ``Scripts`` directory of the virtual
-   environment::
-
-    %HOMEDRIVE%%HOMEPATH%\.virtualenv\bacl\Scripts\bauble.lnk
 
 If you would like to generate and print PDF reports using Bauble's
 default report generator then you will need to download and install
@@ -258,30 +280,24 @@ to in your PATH.
 
 .. _troubleshoot_install:
 
-Troubleshooting the Install
-===========================
+Troubleshooting
+---------------------------
 
-#.  What are the packages that are installed by Bauble:
+#.  any error related to lxml.
 
-    The following packages are required by Bauble
+    In order to be able to compile lxml, you have to install a C compiler
+    (on Linux this would be the ``gcc`` package) and Cython (a Python
+    specialization, that gets compiled into C code. Note: Cython is not
+    CPython).
 
-    	*  SQLAlchemy
-    	*  lxml
+    However, It should not be necessary to compile anything, and ``pip``
+    should be able to locate the binary modules in the online libraries. 
 
-    The following packages are optional:
+    For some reason, this is not the case on Windows 8.1.
 
-    	* Mako - required by the template based report generator
-    	* gdata - required by the Picasa photos InfoBox
+    https://pypi.python.org/pypi/lxml/3.4.4
 
-
-#.  Couldn't install lxml.
-
-    The lxml packages have to be compile with a C compiler. If you
-    don't have a Make sure the libxml and libxsl packages are
-    installed.  Installing the Cython packages.  On Linux you will
-    have to install the gcc package.  On Windows there should be a
-    precompiled version available at
-    http://pypi.python.org/pypi/lxml/2.1.1
+    Please report any other trouble related to the installation of lxml.
 
 #.  Couldn't install gdata.
 
@@ -297,6 +313,3 @@ Troubleshooting the Install
 .. rubric:: Next...
 
 :ref:`connecting`.
-
-
-
