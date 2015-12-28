@@ -145,7 +145,7 @@ welcome.
 the installation steps on Windows:
 
 #. download and install ``git`` (comes with a unix-like ``sh`` and includes
-   ``vi``) from:
+   ``vi``) from::
 
    https://git-scm.com/download/win
    
@@ -156,7 +156,7 @@ the installation steps on Windows:
 
    .. image:: images/screenshots/git3.png
 
-#. download and install Python 2.x (32bit) from:
+#. download and install Python 2.x (32bit) from::
 
    http://www.python.org
 
@@ -173,7 +173,7 @@ the installation steps on Windows:
 #. download ``pygtk`` from the following source. (this requires 32bit
    python). be sure you download the "all in one" version::
 
-    http://ftp.gnome.org/pub/GNOME/binaries/win32/pygtk/
+   http://ftp.gnome.org/pub/GNOME/binaries/win32/pygtk/
 
    `Direct link to download PyGTK`_
 
@@ -212,7 +212,7 @@ the installation steps on Windows:
 
    hey, this is Windows, you need to reboot for changes to take effect!
 
-#. download and run the batch file::
+#. download and run (from ``\system32\cmd.exe``) the batch file:
 
     https://raw.githubusercontent.com/Bauble/bauble.classic/master/scripts/devinstall.bat
 
@@ -223,8 +223,21 @@ the installation steps on Windows:
    you can also run ``devinstall.bat`` passing it as argument the numerical
    part of the production line you want to follow.
 
+   this is the last installation step that depends, heavily, on a working
+   internet connection.
+
+#. the last installation step creates the Bauble group and shortcuts in the
+   Windows Start Menu, for all users. To do so, you need run a script with
+   administrative rights. The script is called ``devinstall-finalize.bat``,
+   it is right in your HOME folder, and has been created at the previous
+   step.
+
+   right-click on it, select run as administrator, confirm you want it to
+   make changes to your computer. These changes are in the Start Menu only:
+   create the Bauble group, place the Bauble shortcut.
+
 #. download the batch file you will use to stay up-to-date with the
-   production line you chose to follow::
+   production line you chose to follow:
 
     https://raw.githubusercontent.com/Bauble/bauble.classic/master/scripts/bauble-update.bat
 
@@ -234,12 +247,6 @@ the installation steps on Windows:
 
    any time you want to update your installation, just start the command
    prompt and run ``bauble-update.bat``
-
-#. you can now start bauble using the ``bauble.lnk`` shortcut that the
-   installation procedure copies to the ``Scripts`` directory of the virtual
-   environment::
-
-    %HOMEDRIVE%%HOMEPATH%\.virtualenv\bacl\Scripts\bauble.lnk
 
 If you would like to generate and print PDF reports using Bauble's
 default report generator then you will need to download and install

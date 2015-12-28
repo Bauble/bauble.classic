@@ -43,15 +43,62 @@ from bauble.view import SearchView
 
 
 class DefaultView(pluginmgr.View):
+    '''consider DefaultView a splash screen.
+
+    it is displayed at program start and never again.
+    it's the core of the "what do I do now" screen.
+
+    DefaultView is related to the SplashCommandHandler,
+    not to the view.DefaultCommandHandler
     '''
-    DefaultView is not related to view.DefaultCommandHandler
-    '''
+    infoboxclass = None
+
     def __init__(self):
         super(DefaultView, self).__init__()
+
+        # splash window contains a hbox: left half is for the proper splash,
+        # right half for infobox, only one infobox is allowed.
+
+        self.hbox = gtk.HBox(False, 0)
+        self.add(self.hbox)
+
         image = gtk.Image()
         image.set_from_file(os.path.join(paths.lib_dir(), 'images',
                                          'bauble_logo.png'))
-        self.pack_start(image)
+        self.hbox.pack_start(image, expand=True)
+
+        # the following means we do not have an infobox yet
+        self.infobox = None
+
+    def update(self):
+        logger.debug('DefaultView::update')
+        if self.infoboxclass and not self.infobox:
+            logger.debug('DefaultView::update - creating infobox')
+            self.infobox = self.infoboxclass()
+            self.hbox.pack_end(self.infobox, expand=False, padding=8)
+            self.infobox.show()
+        if self.infobox:
+            logger.debug('DefaultView::update - updating infobox')
+            self.infobox.update()
+
+
+class SplashCommandHandler(pluginmgr.CommandHandler):
+
+    def __init__(self):
+        super(SplashCommandHandler, self).__init__()
+        if self.view is None:
+            logger.warning('SplashCommandHandler.view is None, expect trouble')
+
+    command = ['home', 'splash']
+    view = None
+
+    def get_view(self):
+        if self.view is None:
+            self.view = DefaultView()
+        return self.view
+
+    def __call__(self, cmd, arg):
+        self.view.update()
 
 
 class GUI(object):
@@ -99,11 +146,14 @@ class GUI(object):
                                    gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
         self.window.add_accel_group(accel_group)
 
-        go_button = self.widgets.go_button
-        go_button.connect('clicked', self.on_go_button_clicked)
+        self.widgets.home_button.connect(
+            'clicked', self.on_home_button_clicked)
 
-        query_button = self.widgets.query_button
-        query_button.connect('clicked', self.on_query_button_clicked)
+        self.widgets.go_button.connect(
+            'clicked', self.on_go_button_clicked)
+
+        self.widgets.query_button.connect(
+            'clicked', self.on_query_button_clicked)
 
         self.set_default_view()
 
@@ -203,6 +253,11 @@ class GUI(object):
     def on_main_entry_activate(self, widget, data=None):
         self.widgets.go_button.emit("clicked")
 
+    def on_home_button_clicked(self, widget):
+        '''
+        '''
+        bauble.command_handler('home', None)
+
     def on_go_button_clicked(self, widget):
         '''
         '''
@@ -297,7 +352,9 @@ class GUI(object):
         main_entry = self.widgets.main_comboentry.child
         if main_entry is not None:
             main_entry.set_text('')
-        self.set_view(DefaultView())
+        SplashCommandHandler.view = DefaultView()
+        self.set_view(SplashCommandHandler.view)
+        pluginmgr.register_command(SplashCommandHandler)
 
     def set_view(self, view=None):
         '''
@@ -306,16 +363,25 @@ class GUI(object):
         :param view: default=None
         '''
         view_box = self.widgets.view_box
+        must_add_this_view = True
         for kid in view_box.get_children():
-            view_box.remove(kid)
-        view_box.pack_start(view, True, True, 0)
+            if view == kid:
+                must_add_this_view = False
+                kid.set_visible(True)
+            else:
+                kid.set_visible(False)
+        if must_add_this_view:
+            view_box.pack_start(view, True, True, 0)
         view.show_all()
 
     def get_view(self):
         '''
         return the current view in the view box
         '''
-        return self.widgets.view_box.get_children()[0]
+        for kid in self.widgets.view_box.get_children():
+            if kid.get_visible():
+                return kid
+        return None
 
     def create_main_menu(self):
         """
@@ -386,7 +452,8 @@ class GUI(object):
         self.clear_menu('/ui/MenuBar/insert_menu')
         self.clear_menu('/ui/MenuBar/tools_menu')
 
-        self.insert_menu = self.ui_manager.get_widget('/ui/MenuBar/insert_menu')
+        self.insert_menu = self.ui_manager.get_widget(
+            '/ui/MenuBar/insert_menu')
         return self.menubar
 
     def clear_menu(self, path):

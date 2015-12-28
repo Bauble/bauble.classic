@@ -38,7 +38,7 @@ from bauble.plugins.plants.family import (
 from bauble.plugins.plants.genus import \
     Genus, GenusSynonym, GenusEditor, GenusNote
 from bauble.plugins.plants.geography import Geography, get_species_in_geography
-from bauble.test import BaubleTestCase, check_dupids
+from bauble.test import BaubleTestCase, check_dupids, mockfunc
 
 from functools import partial
 
@@ -59,6 +59,9 @@ logging.basicConfig()
 # deletes the synonym
 
 # TODO: create some scenarios that should fail
+
+
+from bauble.plugins.plants.species_model import _remove_zws as remove_zws
 
 if sys.platform == 'win32':
     # on windows the hybrid char is set to 'x'in PlantPlugin.init but
@@ -144,6 +147,12 @@ species_test_data = (
     {'id': 19, 'genus_id': 6, 'sp': u'grandiflora', 'author': u'Lindl.'},
     {'id': 20, 'genus_id': 2, 'sp': u'fragrans', 'author': u'Dressler'},
     {'id': 21, 'genus_id': 7, 'sp': u'arborea', 'author': u'Lagerh.'},
+    {'id': 22, 'sp': u'', 'genus_id': 1, 'sp_author': u'',
+     'infrasp1_rank': u'cv.', 'infrasp1': u'Layla Saida'},
+    {'id': 23, 'sp': u'', 'genus_id': 1, 'sp_author': u'',
+     'infrasp1_rank': u'cv.', 'infrasp1': u'Buonanotte'},
+    {'id': 24, 'sp': u'', 'genus_id': 1, 'sp_author': u'',
+     'infrasp1_rank': None, 'infrasp1': u'sp'},
     )
 
 species_note_test_data = (
@@ -261,6 +270,8 @@ class PlantTestCase(BaubleTestCase):
 
     def __init__(self, *args):
         super(PlantTestCase, self).__init__(*args)
+        from bauble import prefs
+        prefs.testing = True
 
     def setUp(self):
         super(PlantTestCase, self).setUp()
@@ -268,11 +279,6 @@ class PlantTestCase(BaubleTestCase):
 
     def tearDown(self):
         super(PlantTestCase, self).tearDown()
-
-
-def mockfunc(msg=None, name=None, caller=None, result=False):
-    caller.invoked.append((name, msg))
-    return result
 
 
 class FamilyTests(PlantTestCase):
@@ -751,27 +757,35 @@ class SpeciesTests(PlantTestCase):
         def get_sp_str(id, **kwargs):
             return Species.str(self.session.query(Species).get(id), **kwargs)
 
-        for sid, s in species_str_map.iteritems():
+        for sid, expect in species_str_map.iteritems():
                 sp = self.session.query(Species).get(sid)
-                self.assertEquals(species_str_map[sid], "%s" % sp)
+                printable_name = remove_zws("%s" % sp)
+                self.assertEquals(species_str_map[sid], printable_name)
                 spstr = get_sp_str(sid)
-                self.assert_(spstr == s,
-                             '"%s" != "%s" ** %s' % (spstr, s, unicode(spstr)))
+                self.assertEquals(remove_zws(spstr), expect)
 
-        for sid, s in species_str_authors_map.iteritems():
+        for sid, expect in species_str_authors_map.iteritems():
             spstr = get_sp_str(sid, authors=True)
-            self.assert_(spstr == s,
-                         '%s != %s ** %s' % (spstr, s, unicode(spstr)))
+            self.assertEquals(remove_zws(spstr), expect)
 
-        for sid, s in species_markup_map.iteritems():
+        for sid, expect in species_markup_map.iteritems():
             spstr = get_sp_str(sid, markup=True)
-            self.assert_(spstr == s,
-                         '%s != %s ** %s' % (spstr, s, unicode(spstr)))
+            self.assertEquals(remove_zws(spstr), expect)
 
-        for sid, s in species_markup_authors_map.iteritems():
+        for sid, expect in species_markup_authors_map.iteritems():
             spstr = get_sp_str(sid, markup=True, authors=True)
-            self.assert_(spstr == s,
-                         '%s != %s ** %s' % (spstr, s, unicode(spstr)))
+            self.assertEquals(remove_zws(spstr), expect)
+
+    def test_lexicographic_order__unspecified_precedes_specified(self):
+        def get_sp_str(id, **kwargs):
+            return Species.str(self.session.query(Species).get(id), **kwargs)
+
+        self.assertTrue(get_sp_str(1) > get_sp_str(22))
+        self.assertTrue(get_sp_str(1) > get_sp_str(23))
+        self.assertTrue(get_sp_str(1) > get_sp_str(24))
+        self.assertTrue(get_sp_str(16) > get_sp_str(22))
+        self.assertTrue(get_sp_str(16) > get_sp_str(23))
+        self.assertTrue(get_sp_str(16) > get_sp_str(24))
 
     # def test_dirty_string(self):
     #     """
@@ -1350,6 +1364,232 @@ class CitesStatus_test(PlantTestCase):
         self.assertEquals(obj.cites, u'II')
 
 
+class GenusHybridMarker_test(PlantTestCase):
+
+    def test_intergeneric_hybrid_not_hybrid(self):
+        gen = Genus.retrieve_or_create(
+            self.session, {'ht-rank': 'family',
+                           'ht-epithet': u'Orchidaceae',
+                           'rank': 'genus',
+                           'epithet': u'Cattleya'})
+        self.assertEquals(gen.hybrid_marker, u'')
+        self.assertEquals(gen.epithet, u'Cattleya')
+
+    def test_intergeneric_hybrid_mult(self):
+        gen = Genus.retrieve_or_create(
+            self.session, {'ht-rank': 'family',
+                           'ht-epithet': u'Orchidaceae',
+                           'rank': 'genus',
+                           'epithet': u'×Brassocattleya'})
+        self.assertEquals(gen.hybrid_marker, u'×')
+        self.assertEquals(gen.epithet, u'Brassocattleya')
+
+    def test_intergeneric_hybrid_x_becomes_mult(self):
+        gen = Genus.retrieve_or_create(
+            self.session, {'ht-rank': 'family',
+                           'ht-epithet': u'Orchidaceae',
+                           'rank': 'genus',
+                           'epithet': u'xVascostylis'})
+        self.assertEquals(gen.hybrid_marker, u'×')
+        self.assertEquals(gen.epithet, u'Vascostylis')
+
+    def test_hybrid_formula_H(self):
+        gen = Genus.retrieve_or_create(
+            self.session, {'ht-rank': 'family',
+                           'ht-epithet': u'Orchidaceae',
+                           'rank': 'genus',
+                           'epithet': u'Miltonia × Odontoglossum × Cochlioda'})
+        self.assertEquals(gen.hybrid_marker, u'H')
+        self.assertEquals(gen.epithet, u'Miltonia × Odontoglossum × Cochlioda')
+
+    def test_intergeneric_graft_hybrid_plus(self):
+        gen = Genus.retrieve_or_create(
+            self.session, {'ht-rank': 'family',
+                           'ht-epithet': u'Rosaceae',
+                           'rank': 'genus',
+                           'epithet': u'+Crataegomespilus'})
+        self.assertEquals(gen.hybrid_marker, u'+')
+        self.assertEquals(gen.epithet, u'Crataegomespilus')
+
+
+class SpeciesInfraspecificProp(PlantTestCase):
+
+    def test_cultivar_epithet_1(self):
+        obj = Species.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'genus',
+                           'ht-epithet': u'Paphiopedilum',
+                           'rank': 'species',
+                           'epithet': u''})
+        obj.infrasp1 = u'Eva Weigner'
+        obj.infrasp1_rank = u'cv.'
+        self.assertEquals(obj.cultivar_epithet, u'Eva Weigner')
+
+    def test_cultivar_epithet_2(self):
+        obj = Species.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'genus',
+                           'ht-epithet': u'Paphiopedilum',
+                           'rank': 'species',
+                           'epithet': u''})
+        obj.infrasp2 = u'Eva Weigner'
+        obj.infrasp2_rank = u'cv.'
+        self.assertEquals(obj.cultivar_epithet, u'Eva Weigner')
+
+    def include_cinnamomum_camphora(self):
+        '''\
+Lauraceae,,Cinnamomum,,"camphora",,"","(L.) J.Presl"
+Lauraceae,,Cinnamomum,,"camphora",f.,"linaloolifera","(Y.Fujita) Sugim."
+Lauraceae,,Cinnamomum,,"camphora",var.,"nominale","Hats. & Hayata"
+'''
+        Family.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'rank': 'family',
+                           'epithet': u'Lauraceae'})
+        self.cinnamomum = Genus.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'family',
+                           'ht-epithet': u'Lauraceae',
+                           'rank': 'genus',
+                           'epithet': u'Cinnamomum'})
+        self.cinnamomum_camphora = Species.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'genus',
+                           'ht-epithet': u'Cinnamomum',
+                           'rank': 'species',
+                           'epithet': u'camphora'})
+
+    def test_infraspecific_1(self):
+        self.include_cinnamomum_camphora()
+        obj = Species(genus=self.cinnamomum,
+                      sp=u'camphora',
+                      infrasp1_rank=u'f.',
+                      infrasp1=u'linaloolifera',
+                      infrasp1_author=u'(Y.Fujita) Sugim.')
+        self.assertEquals(obj.infraspecific_rank, u'f.')
+        self.assertEquals(obj.infraspecific_epithet, u'linaloolifera')
+        self.assertEquals(obj.infraspecific_author, u'(Y.Fujita) Sugim.')
+
+    def test_infraspecific_2(self):
+        self.include_cinnamomum_camphora()
+        obj = Species(genus=self.cinnamomum,
+                      sp=u'camphora',
+                      infrasp2_rank=u'f.',
+                      infrasp2=u'linaloolifera',
+                      infrasp2_author=u'(Y.Fujita) Sugim.')
+        self.assertEquals(obj.infraspecific_rank, u'f.')
+        self.assertEquals(obj.infraspecific_epithet, u'linaloolifera')
+        self.assertEquals(obj.infraspecific_author, u'(Y.Fujita) Sugim.')
+
+    def include_gleditsia_triacanthos(self):
+        "Gleditsia triacanthos var. inermis 'Sunburst'."
+        Family.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'rank': 'family',
+                           'epithet': 'Fabaceae'})
+        self.gleditsia = Genus.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'family',
+                           'ht-epithet': u'Fabaceae',
+                           'rank': 'genus',
+                           'epithet': u'Gleditsia'})
+        self.gleditsia_triacanthos = Species.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'genus',
+                           'ht-epithet': u'Gleditsia',
+                           'rank': 'species',
+                           'epithet': u'triacanthos'})
+
+    def test_variety_and_cultivar_1(self):
+        self.include_gleditsia_triacanthos()
+        obj = Species(genus=self.gleditsia,
+                      sp=u'triacanthos',
+                      infrasp1_rank=u'var.',
+                      infrasp1=u'inermis',
+                      infrasp2=u'Sunburst',
+                      infrasp2_rank=u'cv.')
+        self.assertEquals(obj.infraspecific_rank, u'var.')
+        self.assertEquals(obj.infraspecific_epithet, u'inermis')
+        self.assertEquals(obj.infraspecific_author, u'')
+        self.assertEquals(obj.cultivar_epithet, u'Sunburst')
+
+    def test_variety_and_cultivar_2(self):
+        self.include_gleditsia_triacanthos()
+        obj = Species(genus=self.gleditsia,
+                      sp=u'triacanthos',
+                      infrasp2_rank=u'var.',
+                      infrasp2=u'inermis',
+                      infrasp1=u'Sunburst',
+                      infrasp1_rank=u'cv.')
+        self.assertEquals(obj.infraspecific_rank, u'var.')
+        self.assertEquals(obj.infraspecific_epithet, u'inermis')
+        self.assertEquals(obj.infraspecific_author, u'')
+        self.assertEquals(obj.cultivar_epithet, u'Sunburst')
+
+    def test_infraspecific_props_is_lowest_ranked(self):
+        '''Saxifraga aizoon\
+        var. aizoon subvar. brevifolia f. multicaulis subf. surculosa'''
+        Family.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'rank': 'family',
+                           'epithet': 'Saxifragaceae'})
+        self.genus = Genus.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'family',
+                           'ht-epithet': u'Saxifragaceae',
+                           'rank': 'genus',
+                           'epithet': u'Saxifraga'})
+        self.species = Species.retrieve_or_create(
+            self.session, {'object': 'taxon',
+                           'ht-rank': 'genus',
+                           'ht-epithet': u'Saxifraga',
+                           'rank': 'species',
+                           'epithet': u'aizoon'})
+        subvar = Species(genus=self.genus,
+                         sp=u'aizoon',
+                         infrasp1_rank=u'var.',
+                         infrasp1=u'aizoon',
+                         infrasp2_rank=u'subvar.',
+                         infrasp2=u'brevifolia',
+                         )
+        subf = Species(genus=self.genus,
+                       sp=u'aizoon',
+                       infrasp2_rank=u'var.',
+                       infrasp2=u'aizoon',
+                       infrasp1_rank=u'subvar.',
+                       infrasp1=u'brevifolia',
+                       infrasp3_rank=u'f.',
+                       infrasp3=u'multicaulis',
+                       infrasp4_rank=u'subf.',
+                       infrasp4=u'surculosa',
+                       )
+        self.assertEquals(subvar.infraspecific_rank, u'subvar.')
+        self.assertEquals(subvar.infraspecific_epithet, u'brevifolia')
+        self.assertEquals(subvar.infraspecific_author, u'')
+        self.assertEquals(subvar.cultivar_epithet, u'')
+        self.assertEquals(subf.infraspecific_rank, u'subf.')
+        self.assertEquals(subf.infraspecific_epithet, u'surculosa')
+        self.assertEquals(subf.infraspecific_author, u'')
+        self.assertEquals(subf.cultivar_epithet, u'')
+        "Saxifraga aizoon var. aizoon subvar. brevifolia f. multicaulis "
+        "cv. 'Bellissima'"
+        cv = Species(genus=self.genus,
+                     sp=u'aizoon',
+                     infrasp4_rank=u'var.',
+                     infrasp4=u'aizoon',
+                     infrasp1_rank=u'subvar.',
+                     infrasp1=u'brevifolia',
+                     infrasp3_rank=u'f.',
+                     infrasp3=u'multicaulis',
+                     infrasp2_rank=u'cv.',
+                     infrasp2=u'Bellissima',
+                     )
+        self.assertEquals(cv.infraspecific_rank, u'f.')
+        self.assertEquals(cv.infraspecific_epithet, u'multicaulis')
+        self.assertEquals(cv.infraspecific_author, u'')
+        self.assertEquals(cv.cultivar_epithet, u'Bellissima')
+
+
 class SpeciesProperties_test(PlantTestCase):
     "we can retrieve species_note objects given species and category"
 
@@ -1467,10 +1707,10 @@ class GlobalFunctionsTest(PlantTestCase):
                            'epithet': u'lobata'},
             create=False, update=False)
         first, second = species_markup_func(eCo)
-        self.assertEquals(first, u'<i>Maxillaria</i> <i>variabilis</i>')
+        self.assertEquals(remove_zws(first), u'<i>Maxillaria</i> <i>variabilis</i>')
         self.assertEquals(second, u'Orchidaceae -- SomeName, SomeName 2')
         first, second = species_markup_func(model)
-        self.assertEquals(first, u'<i>Laelia</i> <i>lobata</i>')
+        self.assertEquals(remove_zws(first), u'<i>Laelia</i> <i>lobata</i>')
         self.assertEquals(second, u'Orchidaceae')
 
     def test_species_markup_func_none(self):
@@ -1481,7 +1721,7 @@ class GlobalFunctionsTest(PlantTestCase):
     def test_vername_markup_func(self):
         vName = self.session.query(VernacularName).filter_by(id=1).one()
         first, second = vernname_markup_func(vName)
-        self.assertEquals(second, u'<i>Maxillaria</i> <i>variabilis</i>')
+        self.assertEquals(remove_zws(second), u'<i>Maxillaria</i> <i>variabilis</i>')
         self.assertEquals(first, u'SomeName')
 
     def test_species_get_kids(self):

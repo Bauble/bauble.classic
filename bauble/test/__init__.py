@@ -44,6 +44,7 @@ def init_bauble(uri, create=False):
     if not bauble.db.engine:
         raise BaubleError('not connected to a database')
     prefs.init()
+    prefs.testing = True
     pluginmgr.load()
     db.create(create)
     pluginmgr.init(force=True)
@@ -78,6 +79,10 @@ def check_dupids(filename):
 
 class BaubleTestCase(unittest.TestCase):
 
+    def __init__(self, *args, **kwargs):
+        super(BaubleTestCase, self).__init__(*args, **kwargs)
+        prefs.testing = True
+
     def setUp(self):
         assert uri is not None, "The database URI is not set"
         init_bauble(uri)
@@ -94,3 +99,8 @@ class BaubleTestCase(unittest.TestCase):
     if sys.version_info[:2] < (2, 7):
         def assertIsNone(self, item):
             self.assertTrue(item is None)
+
+
+def mockfunc(msg=None, name=None, caller=None, result=False):
+    caller.invoked.append((name, msg))
+    return result

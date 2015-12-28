@@ -62,6 +62,7 @@ from bauble.view import InfoBox, InfoExpander, PropertiesExpander, \
     select_in_search_results, Action
 import bauble.view as view
 from bauble.search import SearchStrategy
+from types import StringTypes
 
 # TODO: underneath the species entry create a label that shows information
 # about the family of the genus of the species selected as well as more
@@ -373,36 +374,68 @@ class AccessionMapperExtension(MapperExtension):
         return EXT_CONTINUE
 
 
-prov_type_values = [(u'Wild', _('Wild')),
-                    (u'NotWild', _("Not of wild source")),
-                    (u'Cultivated', _('Propagule of cultivated (wild) plant')),
-                    (u'Purchase', _('Purchase or gift')),
-                    (u'InsufficientData', _("Insufficient Data")),
-                    (u'Unknown', _("Unknown")),
-                    (None, '')]
+# ITF2 - E.1; Provenance Type Flag; Transfer code: prot
+prov_type_values = [
+    (u'Wild', _('Accession of wild source')),  # W
+    (u'Cultivated', _('Propagule(s) from a wild source plant')), # Z
+    (u'NotWild', _("Accession not of wild source")),  # G
+    (u'Purchase', _('Purchase or gift')),  # COLLAPSE INTO G
+    (u'InsufficientData', _("Insufficient Data")),  # U
+    (u'Unknown', _("Unknown")),  # COLLAPSE INTO U
+    (None, ''),  # do not transfer this field
+    ]
 
-wild_prov_status_values = [(u'WildNative', _("Wild native")),
-                           (u'WildNonNative', _("Wild non-native")),
-                           (u'CultivatedNative', _("Cultivated native")),
-                           (u'Impound', _("Impound")),
-                           (u'Collection', _("Collection")),
-                           (u'Rescue', _("Rescue")),
-                           (u'InsufficientData', _("Insufficient Data")),
-                           (u'Unknown', _("Unknown")),
-                           (None, '')]
+# ITF2 - E.3; Wild Provenance Status Flag; Transfer code: wpst
+#  - further specifies the W and Z prov type flag
+#
+# according to the ITF2, the keys should literally be one of: 'Wild native',
+# 'Wild non-native', 'Cultivated native', 'Cultivated non-native'.  In
+# practice the standard just requires we note whether a wild (a cultivated
+# propagule Z or the one directly collected W) plant is native or not to the
+# place where it was found. a boolean should suffice, exporting will expand
+# to and importing will collapse from the standard value. Giving all four
+# options after the user has already selected W or Z works only confusing to
+# user not familiar with ITF2 standard.
+wild_prov_status_values = [
+    # Endemic found within indigenous range
+    (u'WildNative', _("Wild native")),
+    # found outside indigenous range
+    (u'WildNonNative', _("Wild non-native")),
+    # Endemic, cultivated, reintroduced or translocated within its
+    # indigenous range
+    (u'CultivatedNative', _("Cultivated native")),
 
-purchase_prov_status_values = [(u'National', _("National")),
-                               (u'Imported', _("Imported")),
-                               (u'Unknown', _("Unknown")),
-                               (None, '')]
+    # MISSING cultivated, found outside its indigenous range
+    # (u'CultivatedNonNative', _("Cultivated non-native"))
 
-cultivated_prov_status_values = [(u'InVitro', _("In vitro")),
-                                 (u'Division', _("Division")),
-                                 (u'Seed', _("Seed")),
-                                 (u'Unknown', _("Unknown")),
-                                 (None, '')]
+    # TO REMOVE:
+    (u'Impound', _("Impound")),
+    (u'Collection', _("Collection")),
+    (u'Rescue', _("Rescue")),
+    (u'InsufficientData', _("Insufficient Data")),
+    (u'Unknown', _("Unknown")),
 
+    # Not transferred
+    (None, '')]
 
+# not ITF2
+# - further specifies the Z prov type flag value
+cultivated_prov_status_values = [
+    (u'InVitro', _("In vitro")),
+    (u'Division', _("Division")),
+    (u'Seed', _("Seed")),
+    (u'Unknown', _("Unknown")),
+    (None, '')]
+
+# not ITF2
+# - further specifies the G prov type flag value
+purchase_prov_status_values = [
+    (u'National', _("National")),
+    (u'Imported', _("Imported")),
+    (u'Unknown', _("Unknown")),
+    (None, '')]
+
+# not ITF2
 recvd_type_values = {
     u'ALAY': _('Air layer'),
     U'BBPL': _('Balled & burlapped plant'),
@@ -451,6 +484,11 @@ class AccessionNote(db.Base, db.Serializable):
     accession = relation(
         'Accession', uselist=False,
         backref=backref('notes', cascade='all, delete-orphan'))
+
+    def as_dict(self):
+        result = db.Serializable.as_dict(self)
+        result['accession'] = self.accession.code
+        return result
 
     @classmethod
     def retrieve(cls, session, keys):
@@ -710,7 +748,7 @@ class Accession(db.Base, db.Serializable):
 
     def as_dict(self):
         result = db.Serializable.as_dict(self)
-        result['species'] = str(self.species)
+        result['species'] = self.species.str(self.species, remove_zws=True)
         return result
 
     @classmethod
@@ -753,6 +791,17 @@ class Accession(db.Base, db.Serializable):
                 cls.code == keys['code']).one()
         except:
             return None
+
+    def top_level_count(self):
+        sd = self.source and self.source.source_detail
+        return {(1, 'Accessions'): 1,
+                (2, 'Species'): set([self.species.id]),
+                (3, 'Genera'): set([self.species.genus.id]),
+                (4, 'Families'): set([self.species.genus.family.id]),
+                (5, 'Plantings'): len(self.plants),
+                (6, 'Living plants'): sum(p.quantity for p in self.plants),
+                (7, 'Locations'): set([p.location.id for p in self.plants]),
+                (8, 'Sources'): set(sd and [sd.id] or [])}
 
 
 from bauble.plugins.garden.plant import Plant, PlantEditor
@@ -1731,6 +1780,10 @@ class AccessionEditorPresenter(editor.GenericEditorPresenter):
                 order_by(Species.sp)
 
         def on_select(value):
+            logger.debug('on select: %s' % value)
+            if isinstance(value, StringTypes):
+                value = Species.retrieve(
+                    self.session, {'species': value})
             def set_model(v):
                 self.set_model_attr('species', v)
                 self.refresh_id_qual_rank_combo()

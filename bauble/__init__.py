@@ -236,20 +236,27 @@ def check_and_notify_new_version():
             version_on_github, timeout=5)
         remote = newer_version_on_github(github_version_stream)
         if remote:
-            md = gtk.MessageDialog(
-                None, gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_INFO,
-                gtk.BUTTONS_OK_CANCEL,
-                _("new remote version available.\n\n"
-                  "remote version: %(1)s,\n"
-                  "running version: %(2)s.\n\n"
-                  "Cancel to stop and upgrade;\n"
-                  "OK to continue.") %
-                {'1': remote,
-                 '2': version})
-            response = md.run()
-            md.destroy()
-            if response != gtk.RESPONSE_OK:
-                exit(0)
+            def show_dialog():
+                md = gtk.MessageDialog(
+                    None, gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_INFO,
+                    gtk.BUTTONS_OK_CANCEL,
+                    _("new remote version available.\n\n"
+                      "remote version: %(1)s,\n"
+                      "running version: %(2)s.\n\n"
+                      "Cancel to stop and upgrade;\n"
+                      "OK to continue.") %
+                    {'1': remote,
+                     '2': version})
+                response = md.run()
+                md.destroy()
+                if response != gtk.RESPONSE_OK:
+                    exit(0)
+
+            # Any code that modifies the UI that is called from outside the
+            # main thread must be pushed into the main thread and called
+            # asynchronously in the main loop, with gobject.idle_add.
+            import gobject
+            gobject.idle_add(show_dialog)
     except urllib2.URLError:
         logger.info('connection is slow or down')
         pass
@@ -349,7 +356,8 @@ def main(uri=None):
     # intialize the user preferences
     prefs.init()
 
-    gobject.idle_add(check_and_notify_new_version)
+    import threading
+    threading.Thread(target=check_and_notify_new_version).start()
 
     open_exc = None
     # open default database
@@ -401,8 +409,8 @@ def main(uri=None):
     prefs.save()
 
     # set the default command handler
-    import bauble.view as view
-    pluginmgr.register_command(view.DefaultCommandHandler)
+    from bauble.view import DefaultCommandHandler
+    pluginmgr.register_command(DefaultCommandHandler)
 
     # now that we have a connection create the gui, start before the plugins
     # are initialized in case they have to do anything like add a menu
@@ -438,6 +446,7 @@ def main(uri=None):
             logger.warning("%s\n%s(%s)"
                            % (traceback.format_exc(), type(e), e))
             utils.message_dialog(utils.utf8(e), gtk.MESSAGE_WARNING)
+        gui.get_view().update()
         gtk.gdk.threads_leave()
 
     gobject.idle_add(_post_loop)

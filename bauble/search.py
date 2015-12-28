@@ -65,10 +65,17 @@ class EmptyToken(object):
         pass
 
     def __repr__(self):
-        return '(Empty<Set>)'
+        return 'Empty'
 
     def express(self):
         return set()
+
+    def __eq__(self, other):
+        if isinstance(other, EmptyToken):
+            return True
+        if isinstance(other, set):
+            return len(other) == 0
+        return NotImplemented
 
 
 class ValueABC(object):
@@ -168,23 +175,24 @@ class IdentExpressionToken(object):
 
         # cfr: SearchParser.binop
         # = == != <> < <= > >= not like contains has ilike icontains ihas is
-        self.operation = {'=': lambda x, y: x == y,
-                          '==': lambda x, y: x == y,
-                          'is': lambda x, y: x == y,
-                          '!=': lambda x, y: x != y,
-                          '<>': lambda x, y: x != y,
-                          'not': lambda x, y: x != y,
-                          '<': lambda x, y: x < y,
-                          '<=': lambda x, y: x <= y,
-                          '>': lambda x, y: x > y,
-                          '>=': lambda x, y: x >= y,
-                          'like': lambda x, y: utils.ilike(x, '%s' % y),
-                          'contains': not_implemented_yet,
-                          'has': not_implemented_yet,
-                          'ilike': lambda x, y: utils.ilike(x, '%s' % y),
-                          'icontains': not_implemented_yet,
-                          'ihas': not_implemented_yet,
-                          }[self.op]
+        self.operation = {
+            '=': lambda x, y: x == y,
+            '==': lambda x, y: x == y,
+            'is': lambda x, y: x == y,
+            '!=': lambda x, y: x != y,
+            '<>': lambda x, y: x != y,
+            'not': lambda x, y: x != y,
+            '<': lambda x, y: x < y,
+            '<=': lambda x, y: x <= y,
+            '>': lambda x, y: x > y,
+            '>=': lambda x, y: x >= y,
+            'like': lambda x, y: utils.ilike(x, '%s' % y),
+            'contains': lambda x, y: utils.ilike(x, '%%%s%%' % y),
+            'has': lambda x, y: utils.ilike(x, '%%%s%%' % y),
+            'ilike': lambda x, y: utils.ilike(x, '%s' % y),
+            'icontains': lambda x, y: utils.ilike(x, '%%%s%%' % y),
+            'ihas': lambda x, y: utils.ilike(x, '%%%s%%' % y),
+            }[self.op]
         self.operands = t[0][0::2]  # every second object is an operand
 
     def __repr__(self):
@@ -487,6 +495,7 @@ from pyparsing import (
     stringEnd, Keyword, quotedString,
     infixNotation, opAssoc, Forward)
 
+wordStart, wordEnd = WordStart(), WordEnd()
 
 class SearchParser(object):
     """The parser for bauble.search.MapperSearch
@@ -510,7 +519,11 @@ class SearchParser(object):
         ).setParseAction(TypedValueToken)
 
     value = (
-        typed_value | numeric_value | none_token | empty_token | string_value
+        typed_value |
+        WordStart('0123456789.-e') + numeric_value + WordEnd('0123456789.-e') |
+        none_token |
+        empty_token |
+        string_value
         ).setParseAction(ValueToken)('value')
     value_list << Group(
         OneOrMore(value) ^ delimitedList(value)
@@ -533,10 +546,10 @@ class SearchParser(object):
         Word(caps, lowers) + Word(lowers)
         ).setParseAction(BinomialNameAction)('binomial_name')
 
-    AND_ = WordStart() + (CaselessLiteral("AND") | Literal("&&")) + WordEnd()
-    OR_ = WordStart() + (CaselessLiteral("OR") | Literal("||")) + WordEnd()
-    NOT_ = WordStart() + (CaselessLiteral("NOT") | Literal('!')) + WordEnd()
-    BETWEEN_ = WordStart() + CaselessLiteral("BETWEEN") + WordEnd()
+    AND_ = wordStart + (CaselessLiteral("AND") | Literal("&&")) + wordEnd
+    OR_ = wordStart + (CaselessLiteral("OR") | Literal("||")) + wordEnd
+    NOT_ = wordStart + (CaselessLiteral("NOT") | Literal('!')) + wordEnd
+    BETWEEN_ = wordStart + CaselessLiteral("BETWEEN") + wordEnd
 
     query_expression = Forward()('filter')
     identifier = Group(delimitedList(Word(alphas+'_', alphanums+'_'),
@@ -665,6 +678,8 @@ class MapperSearch(SearchStrategy):
         self._results.clear()
         results = self.parser.parse_string(text.decode())
         self._results.update(results.statement.invoke(self))
+        logger.debug('search returns %s(%s)'
+                     % (type(self._results), self._results))
 
         # these _results get filled in when the parse actions are called
         return self._results
@@ -845,6 +860,24 @@ class SchemaMenu(gtk.Menu):
         return items
 
 
+def parse_typed_value(value):
+    """parse the input string and return the corresponding typed value
+
+    handles integers, floats, None, Empty, and falls back to string.
+    """
+    try:
+        new_val = value
+        new_val = float(value)
+        new_val = int(value)
+    except:
+        if value == 'None':
+            new_val = None
+        if value == 'Empty':
+            new_val = EmptyToken()
+    value = new_val
+    return value
+
+
 class ExpressionRow(object):
     """
     """
@@ -881,8 +914,7 @@ class ExpressionRow(object):
         self.table.attach(self.prop_button, 1, 2, row_number, row_number+1)
 
         self.cond_combo = gtk.combo_box_new_text()
-        conditions = ['=', '!=', '<', '<=', '>', '>=', 'is', 'not', 'like',
-                      'ilike']
+        conditions = ['=', '!=', '<', '<=', '>', '>=', 'like', 'contains']
         map(self.cond_combo.append_text, conditions)
         self.cond_combo.set_active(0)
         self.table.attach(self.cond_combo, 2, 3, row_number, row_number+1)
@@ -966,7 +998,7 @@ class ExpressionRow(object):
 
     def get_expression(self):
         """
-        Return the expression represented but this ExpressionRow.  If
+        Return the expression represented by this ExpressionRow.  If
         the expression is not valid then return None.
 
         :param self:
@@ -984,12 +1016,17 @@ class ExpressionRow(object):
         else:
             # assume it's a gtk.Entry or other widget with a text property
             value = self.value_widget.props.text.strip()
+        value = parse_typed_value(value)
         and_or = ''
         if self.and_or_combo:
             and_or = self.and_or_combo.get_active_text()
-        return ' '.join([and_or, self.prop_button.props.label,
-                         self.cond_combo.get_active_text(),
-                         '"%s"' % value]).strip()
+        field_name = self.prop_button.props.label
+        if value == EmptyToken():
+            field_name = field_name.rsplit('.', 1)[0]
+        result = ' '.join([and_or, field_name,
+                           self.cond_combo.get_active_text(),
+                           repr(value)]).strip()
+        return result
 
 
 class QueryBuilder(gtk.Dialog):

@@ -45,6 +45,7 @@ import bauble.utils as utils
 import bauble.btypes as types
 import bauble.view as view
 import bauble.paths as paths
+from types import StringTypes
 
 
 def coll_markup_func(coll):
@@ -123,7 +124,7 @@ source_detail_context_menu = [source_detail_edit_action,
 
 
 class Source(db.Base):
-    """
+    """connected 1-1 to Accession, this class adds fields to Accession
     """
     __tablename__ = 'source'
     sources_code = Column(Unicode(32))
@@ -819,6 +820,9 @@ class PropagationChooserPresenter(editor.ChildPresenter):
             return query
 
         def on_select(value):
+            logger.debug('on select: %s' % value)
+            if isinstance(value, StringTypes):
+                return
             # populate the propagation browser
             treeview = self.view.widgets.source_prop_treeview
             if not value:

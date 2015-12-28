@@ -26,6 +26,11 @@ import os
 
 import gtk
 
+import logging
+logger = logging.getLogger(__name__)
+
+import re
+
 import bauble.editor as editor
 import bauble.meta as meta
 import bauble.paths as paths
@@ -42,9 +47,9 @@ class Institution(object):
     Institution values are stored in the Bauble meta database and not in
     its own table
     '''
-    __properties = ('inst_name', 'inst_abbreviation', 'inst_code',
-                    'inst_contact', 'inst_technical_contact', 'inst_email',
-                    'inst_tel', 'inst_fax', 'inst_address')
+    __properties = ('name', 'abbreviation', 'code',
+                    'contact', 'technical_contact', 'email',
+                    'tel', 'fax', 'address')
 
     table = meta.BaubleMeta.__table__
 
@@ -53,8 +58,8 @@ class Institution(object):
         map(lambda p: setattr(self, p, None), self.__properties)
 
         for prop in self.__properties:
-            prop = utils.utf8(prop)
-            result = self.table.select(self.table.c.name == prop).execute()
+            db_prop = utils.utf8('inst_' + prop)
+            result = self.table.select(self.table.c.name == db_prop).execute()
             row = result.fetchone()
             if row:
                 setattr(self, prop, row['value'])
@@ -63,10 +68,10 @@ class Institution(object):
     def write(self):
         for prop in self.__properties:
             value = getattr(self, prop)
-            prop = utils.utf8(prop)
-            value = utils.utf8(value)
-            result = self.table.select(self.table.c.name == prop).\
-                execute()
+            db_prop = utils.utf8('inst_' + prop)
+            if value is not None:
+                value = utils.utf8(value)
+            result = self.table.select(self.table.c.name == db_prop).execute()
             row = result.fetchone()
             result.close()
             # have to check if the property exists first because sqlite doesn't
@@ -74,91 +79,109 @@ class Institution(object):
             # and do an insert and then catching the exception if it exists
             # and then updating the value is too slow
             if not row:
-                #debug('insert: %s = %s' % (prop, value))
-                self.table.insert().execute(name=prop, value=value)
+                logger.debug('insert: %s = %s' % (prop, value))
+                self.table.insert().execute(name=db_prop, value=value)
             else:
-                #debug('update: %s = %s' % (prop, value))
+                logger.debug('update: %s = %s' % (prop, value))
                 self.table.update(
-                    self.table.c.name == prop).execute(value=value)
+                    self.table.c.name == db_prop).execute(value=value)
 
 
-class InstitutionEditorView(editor.GenericEditorView):
+class InstitutionPresenter(editor.GenericEditorPresenter):
 
-    _tooltips = {'inst_name': _('The full name of the institution.'),
-                 'inst_abbr': _('The standard abbreviation of the '
-                                'institution.'),
-                 'inst_code': _('The intitution code should be unique among '
-                                'all institions.'),
-                 'inst_contact': _('The name of the person to contact for '
-                                   'information related to the institution.'),
-                 'inst_tech': _('The email address or phone number of the '
-                                'person to contact for technical '
-                                'information related to the institution.'),
-                 'inst_email': _('The email address of the institution.'),
-                 'inst_tel': _('The telephone number of the institution.'),
-                 'inst_fax': _('The fax number of the institution.'),
-                 'inst_addr': _('The mailing address of the institition.')
-                 }
-
-    def __init__(self, parent=None):
-        filename = os.path.join(paths.lib_dir(), 'plugins', 'garden',
-                                'institution.glade')
-        super(InstitutionEditorView, self).__init__(filename, parent=parent)
-
-    def get_window(self):
-        return self.widgets.inst_dialog
-
-    def start(self):
-        return self.get_window().run()
-
-
-class InstitutionEditorPresenter(editor.GenericEditorPresenter):
-
-    widget_to_field_map = {'inst_name': 'inst_name',
-                           'inst_abbr': 'inst_abbreviation',
-                           'inst_code': 'inst_code',
-                           'inst_contact': 'inst_contact',
-                           'inst_tech': 'inst_technical_contact',
-                           'inst_email': 'inst_email',
-                           'inst_tel': 'inst_tel',
-                           'inst_fax': 'inst_fax',
-                           'inst_addr': 'inst_address'
+    widget_to_field_map = {'inst_name': 'name',
+                           'inst_abbr': 'abbreviation',
+                           'inst_code': 'code',
+                           'inst_contact': 'contact',
+                           'inst_tech': 'technical_contact',
+                           'inst_email': 'email',
+                           'inst_tel': 'tel',
+                           'inst_fax': 'fax',
+                           'inst_addr_tb': 'address'
                            }
 
     def __init__(self, model, view):
-        super(InstitutionEditorPresenter, self).__init__(model, view)
-        self.refresh_view()
-        for widget, field in self.widget_to_field_map.iteritems():
-            self.assign_simple_handler(widget, field)
-        self._dirty = False
+        self.message_box = None
+        self.email_regexp = re.compile(r'.+@.+\..+')
+        super(InstitutionPresenter, self).__init__(
+            model, view, refresh_view=True)
+        self.on_non_empty_text_entry_changed('inst_name')
+        self.on_email_text_entry_changed('inst_email')
 
-    def set_model_attr(self, attr, value, validator):
-        super(InstitutionEditorPresenter, self).set_model_attr(attr, value,
-                                                               validator)
-        self._dirty = True
+    def cleanup(self):
+        super(InstitutionPresenter, self).cleanup()
+        if self.message_box:
+            self.view.remove_box(self.message_box)
+            self.message_box = None
 
-    def dirty(self):
-        return self._dirty
+    def on_non_empty_text_entry_changed(self, widget, value=None):
+        value = super(InstitutionPresenter, self
+                      ).on_non_empty_text_entry_changed(widget, value)
+        box = self.message_box
+        if value:
+            if box:
+                self.view.remove_box(box)
+                self.message_box = None
+        elif not box:
+            box = self.view.add_message_box(utils.MESSAGE_BOX_INFO)
+            box.message = _('Please specify an institution name for this '
+                            'database.')
+            box.show()
+            self.view.add_box(box)
+            self.message_box = box
 
-    def refresh_view(self):
-        for widget, field in self.widget_to_field_map.iteritems():
-            self.view.widget_set_value(widget, getattr(self.model, field))
+    def on_email_text_entry_changed(self, widget, value=None):
+        value = super(InstitutionPresenter, self
+                      ).on_text_entry_changed(widget, value)
+        self.view.widget_set_sensitive(
+            'inst_register', self.email_regexp.match(value or ''))
 
-    def start(self, commit_transaction=True):
-        return self.view.start()
+    def on_inst_register_clicked(self, *args, **kwargs):
+        from bauble.utils import desktop
+        desktop.open('mailto:bauble@anche.no')
+
+    def on_inst_addr_tb_changed(self, widget, value=None, attr=None):
+        return self.on_textbuffer_changed(widget, value, attr='address')
 
 
-class InstitutionEditor(object):
+def start_institution_editor():
+    glade_path = os.path.join(paths.lib_dir(),
+                              "plugins", "garden", "institution.glade")
+    from bauble import prefs
+    from bauble.editor import GenericEditorView, MockView
+    if prefs.testing:
+        view = MockView()
+    else:
+        view = GenericEditorView(
+            glade_path,
+            parent=None,
+            root_widget_name='inst_dialog')
+    view._tooltips = {
+        'inst_name': _('The full name of the institution.'),
+        'inst_abbr': _('The standard abbreviation of the '
+                       'institution.'),
+        'inst_code': _('The intitution code should be unique among '
+                       'all institions.'),
+        'inst_contact': _('The name of the person to contact for '
+                          'information related to the institution.'),
+        'inst_tech': _('The email address or phone number of the '
+                       'person to contact for technical '
+                       'information related to the institution.'),
+        'inst_email': _('The email address of the institution.'),
+        'inst_tel': _('The telephone number of the institution.'),
+        'inst_fax': _('The fax number of the institution.'),
+        'inst_addr': _('The mailing address of the institition.')
+        }
 
-    def __init__(self, parent=None):
-        self.model = Institution()
-        self.view = InstitutionEditorView(parent=parent)
-        self.presenter = InstitutionEditorPresenter(self.model, self.view)
-
-    def start(self):
-        response = self.presenter.start()
-        if response == gtk.RESPONSE_OK:
-            self.model.write()
+    o = Institution()
+    inst_pres = InstitutionPresenter(o, view)
+    response = inst_pres.start()
+    if response == gtk.RESPONSE_OK:
+        o.write()
+        inst_pres.commit_changes()
+    else:
+        inst_pres.session.rollback()
+    inst_pres.session.close()
 
 
 class InstitutionCommand(pluginmgr.CommandHandler):
@@ -174,5 +197,4 @@ class InstitutionTool(pluginmgr.Tool):
 
     @classmethod
     def start(cls):
-        e = InstitutionEditor()
-        e.start()
+        start_institution_editor()

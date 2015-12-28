@@ -40,7 +40,6 @@ def test_duplicate_ids():
 
 import bauble
 import bauble.prefs as prefs
-prefs.testing = True  # prevents overwriting
 
 
 class ConnMgrPresenterTests(BaubleTestCase):
@@ -442,6 +441,8 @@ class AddConnectionTests(BaubleTestCase):
         ## nothing changes
         self.assertFalse(presenter.view.widget_get_visible(
             'expander'))
+        self.assertFalse(presenter.view.widget_get_sensitive(
+            'connect_button'))
         self.assertTrue(presenter.view.widget_get_visible(
             'noconnectionlabel'))
 
@@ -456,6 +457,8 @@ class AddConnectionTests(BaubleTestCase):
         ## visibility swapped
         self.assertTrue(presenter.view.widget_get_visible(
             'expander'))
+        self.assertTrue(presenter.view.widget_get_sensitive(
+            'connect_button'))
         self.assertFalse(presenter.view.widget_get_visible(
             'noconnectionlabel'))
 

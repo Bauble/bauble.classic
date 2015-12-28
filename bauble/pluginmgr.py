@@ -68,14 +68,15 @@ def register_command(handler):
     :param handler:  A class which extends pluginmgr.CommandHandler
     """
     global commands
+    logger.debug('registering command handler %s' % str(handler.command))
     if isinstance(handler.command, str):
-        #if handler.command in commands:
-        #    raise ValueError(_('%s already registered' % handler.command))
+        if handler.command in commands:
+            logger.info('overwriting command %s' % handler.command)
         commands[handler.command] = handler
     else:
         for cmd in handler.command:
-            #if cmd in commands:
-            #    raise ValueError(_('%s already registered' % cmd))
+            if cmd in commands:
+                logger.info('overwriting command %s' % cmd)
             commands[cmd] = handler
 
 

@@ -36,6 +36,13 @@ import bauble.btypes as types
 from bauble.i18n import _
 
 
+def _remove_zws(s):
+    "remove_zero_width_space"
+    if s:
+        return s.replace(u'\u200b', '')
+    return s
+
+
 class VNList(list):
     """
     A Collection class for Species.vernacular_names
@@ -70,6 +77,16 @@ infrasp_rank_values = {u'subsp.': _('subsp.'),
 # TODO: the specific epithet should not be non-nullable but instead
 # make sure that at least one of the specific epithet, cultivar name
 # or cultivar group is specificed
+
+
+def compare_rank(rank1, rank2):
+    'implement the binary comparison operation needed for sorting'
+
+    ordering = [u'familia', u'subfamilia', u'tribus', u'subtribus',
+                u'genus', u'subgenus', u'species', None, u'subsp.',
+                u'var.', u'subvar.', u'f.', u'subf.', u'cv.']
+    return ordering.index(rank1).__cmp__(ordering.index(rank2))
+
 
 class Species(db.Base, db.Serializable, db.DefiningPictures):
     """
@@ -188,6 +205,47 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         notes = [i.note for i in self.notes
                  if i.category.lower() == u'condition']
         return (notes + [None])[0]
+
+    def __lowest_infraspecific(self):
+        infrasp = [(self.infrasp1_rank, self.infrasp1,
+                    self.infrasp1_author),
+                   (self.infrasp2_rank, self.infrasp2,
+                    self.infrasp2_author),
+                   (self.infrasp3_rank, self.infrasp3,
+                    self.infrasp3_author),
+                   (self.infrasp4_rank, self.infrasp4,
+                    self.infrasp4_author)]
+        infrasp = [i for i in infrasp if i[0] not in [u'cv.', '', None]]
+        if infrasp == []:
+            return (u'', u'', u'')
+        return sorted(infrasp, cmp=lambda a, b: compare_rank(a[0], b[0]))[-1]
+
+    @property
+    def infraspecific_rank(self):
+        return self.__lowest_infraspecific()[0] or u''
+
+    @property
+    def infraspecific_epithet(self):
+        return self.__lowest_infraspecific()[1] or u''
+
+    @property
+    def infraspecific_author(self):
+        return self.__lowest_infraspecific()[2] or u''
+
+    @property
+    def cultivar_epithet(self):
+        infrasp = ((self.infrasp1_rank, self.infrasp1,
+                    self.infrasp1_author),
+                   (self.infrasp2_rank, self.infrasp2,
+                    self.infrasp2_author),
+                   (self.infrasp3_rank, self.infrasp3,
+                    self.infrasp3_author),
+                   (self.infrasp4_rank, self.infrasp4,
+                    self.infrasp4_author))
+        for rank, epithet, author in infrasp:
+            if rank == u'cv.':
+                return epithet
+        return u''
 
     # columns
     sp = Column(Unicode(64), index=True)
@@ -313,7 +371,7 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
     hybrid_char = utils.utf8(u'\u2a09')  # U+2A09
 
     @staticmethod
-    def str(species, authors=False, markup=False):
+    def str(species, authors=False, markup=False, remove_zws=False):
         '''
         returns a string for species
 
@@ -327,19 +385,22 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         # since it won't be able to look up the genus....we could
         # probably try to query the genus directly with the genus_id
         genus = str(species.genus)
-        sp = species.sp
+        if species.sp:
+            sp = u'\u200b' + species.sp  # prepend with zero_width_space
+        else:
+            sp = species.sp
         sp2 = species.sp2
         if markup:
             escape = utils.xml_safe
-            italicize = lambda s: u'<i>%s</i>' % escape(s)
+            italicize = lambda s: (  # all but the multiplication signs
+                u'<i>%s</i>' % escape(s).replace(u'×', u'</i>×<i>'))
             genus = italicize(genus)
             if sp is not None:
-                sp = italicize(species.sp)
+                sp = italicize(sp)
             if sp2 is not None:
-                sp2 = italicize(species.sp2)
+                sp2 = italicize(sp2)
         else:
-            italicize = lambda s: u'%s' % s
-            escape = lambda x: x
+            italicize = escape = lambda x: x
 
         author = None
         if authors and species.sp_author:
@@ -387,13 +448,15 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         else:
             binomial = [genus, sp, sp2, author]
 
-        # create the tail a.k.a think to add on to the end
+        # create the tail, ie: anything to add on to the end
         tail = []
         if species.sp_qual:
             tail = [species.sp_qual]
 
         parts = chain(binomial, infrasp_parts, tail)
         s = utils.utf8(' '.join(filter(lambda x: x not in ('', None), parts)))
+        if remove_zws:
+            return _remove_zws(s)
         return s
 
     @property
@@ -403,7 +466,7 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         session = object_session(self)
         syn = session.query(SpeciesSynonym).filter(
             SpeciesSynonym.synonym_id == self.id).first()
-        accepted = syn and syn.family
+        accepted = syn and syn.species
         return accepted
 
     @accepted.setter
@@ -412,6 +475,12 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
         assert isinstance(value, self.__class__)
         if self in value.synonyms:
             return
+        # remove any previous `accepted` link
+        from sqlalchemy.orm.session import object_session
+        session = object_session(self) or db.Session()
+        session.query(SpeciesSynonym).filter(
+            SpeciesSynonym.synonym_id == self.id).delete()
+        session.commit()
         value.synonyms.append(self)
 
     def has_accessions(self):
@@ -497,6 +566,19 @@ class Species(db.Base, db.Serializable, db.DefiningPictures):
             raise error.NoResultException()
         return result
 
+    def top_level_count(self):
+        plants = [p for a in self.accessions for p in a.plants]
+        return {(1, 'Species'): 1,
+                (2, 'Genera'): set([self.genus.id]),
+                (3, 'Families'): set([self.genus.family.id]),
+                (4, 'Accessions'): len(self.accessions),
+                (5, 'Plantings'): len(plants),
+                (6, 'Living plants'): sum(p.quantity for p in plants),
+                (7, 'Locations'): set(p.location.id for p in plants),
+                (8, 'Sources'): set([a.source.source_detail.id
+                                     for a in self.accessions
+                                     if a.source and a.source.source_detail])}
+
 
 class SpeciesNote(db.Base, db.Serializable):
     """
@@ -515,7 +597,7 @@ class SpeciesNote(db.Base, db.Serializable):
 
     def as_dict(self):
         result = db.Serializable.as_dict(self)
-        result['species'] = str(self.species)
+        result['species'] = self.species.str(self.species, remove_zws=True)
         return result
 
     @classmethod
@@ -606,7 +688,7 @@ class VernacularName(db.Base, db.Serializable):
 
     def as_dict(self):
         result = db.Serializable.as_dict(self)
-        result['species'] = str(self.species)
+        result['species'] = self.species.str(self.species, remove_zws=True)
         return result
 
     @classmethod

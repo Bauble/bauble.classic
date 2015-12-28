@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 import gtk
 import gobject
 import pango
+import threading
 
 from bauble.i18n import _
 from pyparsing import ParseException
@@ -355,6 +356,49 @@ class LinksExpander(InfoExpander):
                     self.dynamic_box.pack_start(
                         button, expand=False, fill=False)
             self.dynamic_box.show_all()
+
+
+class CountResultsTask(threading.Thread):
+    def __init__(self, klass, ids,
+                 group=None, verbose=None, **kwargs):
+        super(CountResultsTask, self).__init__(
+            group=group, target=None, name=None, verbose=verbose)
+        self.klass = klass
+        self.ids = ids
+
+    def run(self):
+        session = db.Session()
+        ## we really need a new session
+        session.close()
+        session = db.Session()
+        klass = self.klass
+        d = {}
+        for ndx in self.ids:
+            item = session.query(klass).filter(klass.id == ndx).one()
+            for k, v in item.top_level_count().items():
+                if isinstance(v, set):
+                    d[k] = v.union(d.get(k, set()))
+                else:
+                    d[k] = v + d.get(k, 0)
+        result = []
+        for k, v in sorted(d.items()):
+            if isinstance(k, tuple):
+                k = k[1]
+            if isinstance(v, set):
+                v = len(v)
+            result.append("%s: %d" % (k, v))
+        value = _("top level count: %s") % (", ".join(result))
+        if bauble.gui:
+            def callback(text):
+                statusbar = bauble.gui.widgets.statusbar
+                sbcontext_id = statusbar.get_context_id('searchview.nresults')
+                statusbar.pop(sbcontext_id)
+                statusbar.push(sbcontext_id, text)
+            gobject.idle_add(callback, value)
+        else:
+            logger.debug("showing text %s", value)
+        ## we should not leave the session around
+        session.close()
 
 
 class SearchView(pluginmgr.View):
@@ -740,8 +784,14 @@ class SearchView(pluginmgr.View):
                 return
             else:
                 statusbar.pop(sbcontext_id)
-                statusbar.push(sbcontext_id,
-                               _("%s search results") % len(results))
+                statusbar.push(sbcontext_id, _('counting results...'))
+                if len(set(item.__class__ for item in results)) == 1:
+                    CountResultsTask(results[0].__class__,
+                                     [i.id for i in results]).start()
+                else:
+                    statusbar.push(sbcontext_id,
+                                   _('size of non homogeneous result: %s') %
+                                   len(results))
                 self.results_view.set_cursor(0)
                 gobject.idle_add(lambda: self.results_view.scroll_to_cell(0))
 
@@ -781,7 +831,8 @@ class SearchView(pluginmgr.View):
             logger.debug(traceback.format_exc())
             return True
         else:
-            self.append_children(model, treeiter, kids)
+            self.append_children(
+                model, treeiter, sorted(kids, key=utils.natsort_key))
             return False
 
     def populate_results(self, results, check_for_kids=False):
@@ -1269,14 +1320,14 @@ class DefaultCommandHandler(pluginmgr.CommandHandler):
 
     def __init__(self):
         super(DefaultCommandHandler, self).__init__()
-        self.view = None
 
     command = [None]
+    view = None
 
     def get_view(self):
-        if self.view is None:
-            self.view = SearchView()
-        return self.view
+        if self.__class__.view is None:
+            self.__class__.view = SearchView()
+        return self.__class__.view
 
     def __call__(self, cmd, arg):
         self.view.search(arg)

@@ -199,8 +199,8 @@ class PlantSearch(SearchStrategy):
         if text[0] == text[-1] and text[0] in ['"', "'"]:
             text = text[1:-1]
         else:
-            logger.debug("text is not quoted, so strategy does not apply")
-            return []
+            logger.debug("text is not quoted, should strategy apply?")
+            #return []
         delimiter = Plant.get_delimiter()
         if delimiter not in text:
             logger.debug("delimiter not found, can't split the code")
@@ -212,7 +212,7 @@ class PlantSearch(SearchStrategy):
             from bauble.plugins.garden import Accession
             query = session.query(Plant).filter(
                 Plant.code == unicode(plant_code)).join(Accession).filter(
-                Accession.code == unicode(acc_code))
+                utils.ilike(Accession.code, u'%%%s' % unicode(acc_code)))
             return query.all()
         except Exception, e:
             logger.debug("%s %s" % (e.__class__.name, e))
@@ -259,16 +259,18 @@ class PlantNote(db.Base, db.Serializable):
 
     @classmethod
     def compute_serializable_fields(cls, session, keys):
-        result = {'accession': None}
+        'plant is given as text, should be object'
+        result = {'plant': None}
 
-        acc_keys = {}
-        acc_keys.update(keys)
-        acc_keys['code'] = keys['accession']
-        accession = Accession.retrieve_or_create(
-            session, acc_keys, create=(
-                'taxon' in acc_keys and 'rank' in acc_keys))
+        acc_code, plant_code = keys['plant'].rsplit(
+            Plant.get_delimiter(), 1)
+        print acc_code, plant_code
+        q = session.query(Plant).filter(
+            Plant.code == unicode(plant_code)).join(
+            Accession).filter(Accession.code == unicode(acc_code))
+        plant = q.one()
 
-        result['accession'] = accession
+        result['plant'] = plant
 
         return result
 
@@ -598,6 +600,18 @@ class Plant(db.Base, db.Serializable, db.DefiningPictures):
                 Accession.code == keys['accession']).one()
         except:
             return None
+
+    def top_level_count(self):
+        sd = self.accession.source and self.accession.source.source_detail
+        return {(1, 'Plantings'): 1,
+                (2, 'Accessions'): set([self.accession.id]),
+                (3, 'Species'): set([self.accession.species.id]),
+                (4, 'Genera'): set([self.accession.species.genus.id]),
+                (5, 'Families'): set([self.accession.species.genus.family.id]),
+                (6, 'Living plants'): self.quantity,
+                (7, 'Locations'): set([self.location.id]),
+                (8, 'Sources'): set(sd and [sd.id] or []),
+                }
 
 
 from bauble.plugins.garden.accession import Accession

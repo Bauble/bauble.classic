@@ -150,6 +150,8 @@ class MapperBase(DeclarativeMeta):
                                           default=sa.func.now(),
                                           onupdate=sa.func.now())
             cls.__mapper_args__ = {'extension': HistoryExtension()}
+        if 'top_level_count' not in dict_:
+            cls.top_level_count = lambda x: {classname: 1}
         super(MapperBase, cls).__init__(classname, bases, dict_)
 
 
@@ -252,13 +254,13 @@ def open(uri, verify=True, show_error_dialogs=False):
     global engine
     new_engine = None
 
-    # use the SingletonThreadPool so that we always use the same
-    # connection in a thread, not sure how this is different than
-    # the threadlocal strategy but it doesn't cause as many lockups
-    import sqlalchemy.pool as pool
+    from sqlalchemy.pool import NullPool, SingletonThreadPool
+    from bauble.prefs import testing
+    poolclass = testing and SingletonThreadPool or NullPool
+    poolclass = SingletonThreadPool
     new_engine = sa.create_engine(uri, echo=SQLALCHEMY_DEBUG,
                                   implicit_returning=False,
-                                  poolclass=pool.SingletonThreadPool)
+                                  poolclass=poolclass)
     # TODO: there is a problem here: the code may cause an exception, but we
     # immediately loose the 'new_engine', which should know about the
     # encoding used in the exception string.
@@ -298,7 +300,7 @@ def create(import_defaults=True):
 
     """
 
-##    debug('entered db.create()')
+    logger.debug('entered db.create()')
     if not engine:
         raise ValueError('engine is None, not connected to a database')
     import bauble
@@ -474,6 +476,7 @@ class DefiningPictures:
                 pixbuf = gtk.gdk.pixbuf_new_from_file(
                     os.path.join(prefs.prefs[prefs.picture_root_pref],
                                  filename))
+                pixbuf = pixbuf.apply_embedded_orientation()
                 scale_x = pixbuf.get_width() / 400
                 scale_y = pixbuf.get_height() / 400
                 scale = max(scale_x, scale_y, 1)
@@ -601,6 +604,7 @@ class Serializable:
             logger.debug('returning updated existing %s' % result)
             return result
 
+        logger.debug("going to create new %s with %s" % (cls, keys))
         result = cls(**keys)
         session.add(result)
         session.flush()
