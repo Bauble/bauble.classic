@@ -358,13 +358,42 @@ class LinksExpander(InfoExpander):
             self.dynamic_box.show_all()
 
 
+class AddOneDot(threading.Thread):
+
+    @staticmethod
+    def callback(dotno):
+        statusbar = bauble.gui.widgets.statusbar
+        sbcontext_id = statusbar.get_context_id('searchview.nresults')
+        statusbar.pop(sbcontext_id)
+        statusbar.push(sbcontext_id, _('counting results') + '.' * dotno)
+
+    def __init__(self, group=None, verbose=None, **kwargs):
+        super(AddOneDot, self).__init__(
+            group=group, target=None, name=None, verbose=verbose)
+        self.__stopped = threading.Event()
+        self.dotno = 0
+
+    def cancel(self):
+        self.__stopped.set()
+
+    def run(self):
+        while not self.__stopped.wait(1.0):
+            self.dotno += 1
+            gobject.idle_add(self.callback, self.dotno)
+
+
 class CountResultsTask(threading.Thread):
-    def __init__(self, klass, ids,
+    def __init__(self, klass, ids, dots_thread,
                  group=None, verbose=None, **kwargs):
         super(CountResultsTask, self).__init__(
             group=group, target=None, name=None, verbose=verbose)
         self.klass = klass
         self.ids = ids
+        self.dots_thread = dots_thread
+        self.__cancel = False
+
+    def cancel(self):
+        self.__cancel = True
 
     def run(self):
         session = db.Session()
@@ -375,6 +404,8 @@ class CountResultsTask(threading.Thread):
         d = {}
         for ndx in self.ids:
             item = session.query(klass).filter(klass.id == ndx).one()
+            if self.__cancel:  # check whether caller asks to cancel
+                break
             for k, v in item.top_level_count().items():
                 if isinstance(v, set):
                     d[k] = v.union(d.get(k, set()))
@@ -387,6 +418,8 @@ class CountResultsTask(threading.Thread):
             if isinstance(v, set):
                 v = len(v)
             result.append("%s: %d" % (k, v))
+            if self.__cancel:  # check whether caller asks to cancel
+                break
         value = _("top level count: %s") % (", ".join(result))
         if bauble.gui:
             def callback(text):
@@ -394,7 +427,9 @@ class CountResultsTask(threading.Thread):
                 sbcontext_id = statusbar.get_context_id('searchview.nresults')
                 statusbar.pop(sbcontext_id)
                 statusbar.push(sbcontext_id, text)
-            gobject.idle_add(callback, value)
+            if not self.__cancel:  # check whether caller asks to cancel
+                self.dots_thread.cancel()
+                gobject.idle_add(callback, value)
         else:
             logger.debug("showing text %s", value)
         ## we should not leave the session around
@@ -498,6 +533,7 @@ class SearchView(pluginmgr.View):
         # be cleared when we do a new search
         self.session = db.Session()
         self.add_notes_page_to_bottom_notebook()
+        self.running_threads = []
 
     def add_notes_page_to_bottom_notebook(self):
         '''add notebook page for notes
@@ -702,7 +738,7 @@ class SearchView(pluginmgr.View):
                         # cursor is
                         sel = self.get_selected_values()
                         if func(sel):
-                            self.reset_view()
+                            self.update()
                     return _impl
                 self.accel_group.connect_group(keyval, mod,
                                                gtk.ACCEL_VISIBLE,
@@ -728,6 +764,8 @@ class SearchView(pluginmgr.View):
         # create a new session for each search...maybe we shouldn't
         # even have session as a class attribute
         self.session = db.Session()
+        # stop whatever it might still be doing
+        self.cancel_threads()
         bold = '<b>%s</b>'
         results = []
         try:
@@ -784,10 +822,12 @@ class SearchView(pluginmgr.View):
                 return
             else:
                 statusbar.pop(sbcontext_id)
-                statusbar.push(sbcontext_id, _('counting results...'))
+                statusbar.push(sbcontext_id, _('counting results'))
                 if len(set(item.__class__ for item in results)) == 1:
-                    CountResultsTask(results[0].__class__,
-                                     [i.id for i in results]).start()
+                    dots_thread = self.start_thread(AddOneDot())
+                    self.start_thread(CountResultsTask(
+                        results[0].__class__, [i.id for i in results],
+                        dots_thread))
                 else:
                     statusbar.push(sbcontext_id,
                                    _('size of non homogeneous result: %s') %
@@ -1051,7 +1091,7 @@ class SearchView(pluginmgr.View):
                             msg, tb, gtk.MESSAGE_ERROR)
                         logger.warning(traceback.format_exc())
                     if result:
-                        self.reset_view()
+                        self.update()
 
                 item.connect('activate', on_activate, action.callback)
                 menu.append(item)
@@ -1065,13 +1105,13 @@ class SearchView(pluginmgr.View):
         menu.popup(None, None, None, event.button, event.time)
         return True
 
-    def reset_view(self):
+    def update(self):
         """
         Expire all the children in the model, collapse everything,
         reexpand the rows to the previous state where possible and
         update the infobox.
         """
-        logger.debug('SearchView::reset_view')
+        logger.debug('SearchView::update')
         model, paths = self.results_view.get_selection().get_selected_rows()
         ref = None
         try:
@@ -1210,81 +1250,109 @@ class Note:
             return []
 
 
-class StringColumn(gtk.TreeViewColumn):
+class AppendThousandRows(threading.Thread):
 
-    """
-    A generic StringColumn for use in a gtk.TreeView.
+    def callback(self, rows):
+        for row in rows:
+            self.view.add_row(row)
 
-    This code partially based on the StringColumn from the Quidgets
-    project (http://launchpad.net/quidgets)
-    """
-    def __init__(self, title, format_func=None, **kwargs):
-        self.renderer = gtk.CellRendererText()
-        super(StringColumn, self).__init__(title, self.renderer, **kwargs)
-        self.renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
-        if format_func:
-            self.set_cell_data_func(self.renderer, self.cell_data_func,
-                                    format_func)
+    def __init__(self, view, group=None, verbose=None, **kwargs):
+        super(AppendThousandRows, self).__init__(
+            group=group, target=None, name=None, verbose=verbose)
+        self.__stopped = threading.Event()
+        self.view = view
 
-    def cell_data_func(self, column, cell, model, treeiter, format):
-        value = format(model[treeiter])
-        cell.set_property('text', value)
+    def cancel(self):
+        self.__stopped.set()
+
+    def run(self):
+        session = db.Session()
+        q = session.query(db.History).order_by(db.History.timestamp.desc())
+        # add rows in small batches
+        offset = 0
+        step = 200
+        count = q.count()
+        while offset < count and not self.__stopped.isSet():
+            rows = q.offset(offset).limit(step).all()
+            gobject.idle_add(self.callback, rows)
+            offset += step
+        session.close()
 
 
 class HistoryView(pluginmgr.View):
     """Show the tables row in the order they were last updated
     """
+
     def __init__(self):
-        super(HistoryView, self).__init__()
-        self.init_gui()
+        logger.debug('PrefsView::__init__')
+        super(HistoryView, self).__init__(
+            filename=os.path.join(paths.lib_dir(), 'bauble.glade'),
+            root_widget_name='history_window')
+        self.view.connect_signals(self)
+        self.liststore = self.view.widgets.history_ls
+        self.update()
 
-    def init_gui(self):
-        self.treeview = gtk.TreeView()
-        #self.treeview.set_fixed_height_mode(True)
-        columns = [(_('Timestamp'), 0), (_('Operation'), 1),
-                   (_('User'), 2), (_('Table'), 3), (_('Values'), 4)]
-        for name, index in columns:
-            column = StringColumn(name, text=index)
-            column.set_sort_column_id(index)
-            column.set_expand(False)
-            column.props.sizing = gtk.TREE_VIEW_COLUMN_AUTOSIZE
-            column.set_resizable(True)
-            column.renderer.set_fixed_height_from_font(1)
-            self.treeview.append_column(column)
-        sw = gtk.ScrolledWindow()
-        sw.add(self.treeview)
-        self.pack_start(sw)
+    @staticmethod
+    def cmp_items(a, b):
+        ka, va = a
+        kb, vb = b
+        if ka == 'id':
+            return -1
+        if kb == 'id':
+            return 1
+        if va == 'None' and vb != 'None':
+            return 1
+        if vb == 'None' and va != 'None':
+            return -1
+        if a < b:
+            return -1
+        if b < a:
+            return 1
+        return 0
 
-    def populate_history(self, arg):
+    @staticmethod
+    def show_typed_value(v):
+        try:
+            eval(v)
+            return v
+        except:
+            return u"»%s«" % v
+
+    def add_row(self, item):
+        d = eval(item.values)
+        del d['_created']
+        del d['_last_updated']
+        friendly = ', '.join(u"%s: %s" % (k, self.show_typed_value(v))
+                             for k, v in sorted(d.items(), self.cmp_items)
+                             )
+        self.liststore.append([
+            ("%s" % item.timestamp)[:19], item.operation, item.user,
+            item.table_name, friendly, item.values
+            ])
+
+    def update(self):
         """
         Add the history items to the view.
         """
-        session = db.Session()
-        utils.clear_model(self.treeview)
-        model = gtk.ListStore(str, str, str, str, str)
-        for item in session.query(db.History).\
-                order_by(db.History.timestamp.desc()).all():
-            model.append([item.timestamp, item.operation, item.user,
-                          item.tablename, item.values])
-        self.treeview.set_model(model)
-        session.close()
+        self.liststore.clear()
+        self.start_thread(AppendThousandRows(self))
 
 
 class HistoryCommandHandler(pluginmgr.CommandHandler):
 
+    command = 'history'
+    view = None
+
     def __init__(self):
         super(HistoryCommandHandler, self).__init__()
-        self.view = None
-
-    command = 'history'
 
     def get_view(self):
         if not self.view:
-            self.view = HistoryView()
+            self.__class__.view = HistoryView()
         return self.view
 
     def __call__(self, cmd, arg):
-        self.view.populate_history(arg)
+        self.view.update()
 
 
 pluginmgr.register_command(HistoryCommandHandler)

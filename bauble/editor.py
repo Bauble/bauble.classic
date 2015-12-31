@@ -248,6 +248,12 @@ class GenericEditorView(object):
                 self.connect(window, 'response', self.on_dialog_response)
         self.box = set()  # the top level, meant for warnings.
 
+    def cancel_threads(self):
+        pass
+
+    def update(self):
+        pass
+
     def run_file_chooser_dialog(
             self, text, parent, action, buttons, last_folder, target):
         chooser = gtk.FileChooserDialog(text, parent, action, buttons)
@@ -425,6 +431,18 @@ class GenericEditorView(object):
         for obj, sid in self.__attached_signals:
             obj.disconnect(sid)
         del self.__attached_signals[:]
+
+    def disconnect_widget_signals(self, widget):
+        """disconnect all signals attached to widget"""
+
+        removed = []
+        for obj, sid in self.__attached_signals:
+            if obj == widget:
+                widget.disconnect(sid)
+                removed.append((obj, sid))
+
+        for item in removed:
+            self.__attached_signals.remove(item)
 
     def get_window(self):
         """
@@ -987,6 +1005,7 @@ class GenericEditorPresenter(object):
         self.view = view
         self.problems = set()
         self._dirty = False
+        self.running_threads = []
         self.owns_session = False
         self.session = session
         if session is None:
@@ -1019,6 +1038,16 @@ class GenericEditorPresenter(object):
             value = value is None and '' or value
             self.view.widget_set_value(widget, value)
 
+    def cancel_threads(self):
+        for k in self.running_threads:
+            k.cancel()
+        self.running_threads = []
+
+    def start_thread(self, thread):
+        self.running_threads.append(thread)
+        thread.start()
+        return thread
+
     def commit_changes(self):
         '''
         Commit the changes to self.session()
@@ -1026,6 +1055,10 @@ class GenericEditorPresenter(object):
         objs = list(self.session)
         try:
             self.session.flush()
+            try:
+                bauble.gui.get_view().update()
+            except Exception, e:
+                pass
         except Exception, e:
             logger.warning(e)
             self.session.rollback()
@@ -1224,7 +1257,7 @@ class GenericEditorPresenter(object):
             # if no problem id and not problem widgets then don't do anything
             return
 
-        if not isinstance(widget, gtk.Widget):
+        if not isinstance(widget, (gtk.Widget, type(None))):
             try:
                 widget = getattr(self.view.widgets, widget)
             except:
@@ -1596,6 +1629,10 @@ class GenericModelViewPresenterEditor(object):
         objs = list(self.session)
         try:
             self.session.flush()
+            try:
+                bauble.gui.get_view().update()
+            except Exception, e:
+                pass
         except Exception, e:
             logger.warning(e)
             self.session.rollback()
