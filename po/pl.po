@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: bauble\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-10-04 14:33-0500\n"
-"PO-Revision-Date: 2015-12-29 03:04+0000\n"
-"Last-Translator: Mario Frasca <mariotomo@gmail.com>\n"
+"PO-Revision-Date: 2016-09-25 09:39+0000\n"
+"Last-Translator: Stanisław Krukowski <dfk0077@riseup.net>\n"
 "Language-Team: Polish <https://hosted.weblate.org/projects/bauble/master/pl/>"
 "\n"
 "Language: pl\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 2.5-dev\n"
+"X-Generator: Weblate 2.9-dev\n"
 "X-Launchpad-Export-Date: 2012-11-14 04:52+0000\n"
 "X-Poedit-Basepath: ../\n"
 "X-Poedit-SearchPath-0: bauble\n"
@@ -33,7 +33,7 @@ msgstr ""
 
 #: bauble/plugins/garden/prop_editor.glade:1343
 msgid "# Germinated"
-msgstr "# wykiełkowało."
+msgstr "# Wykiełkowane"
 
 #: bauble/plugins/garden/propagation.py:184
 msgid "# of seedlings: %s"
@@ -49,7 +49,7 @@ msgstr "# nasion: %s"
 
 #: bauble/plugins/garden/prop_editor.glade:1393
 msgid "% Germinated"
-msgstr "% wykiełkowało."
+msgstr "% Wykiełkowane"
 
 #: bauble/plugins/plants/species_model.py:377
 msgid "%(group)s Group"
@@ -513,7 +513,7 @@ msgstr ""
 
 #: bauble/plugins/plants/genus_editor.glade:359
 msgid "Add Species"
-msgstr "Dodaj gatunek"
+msgstr "Dodaj gatunki"
 
 #: bauble/plugins/garden/loc_editor.glade:55
 #: bauble/plugins/garden/acc_editor.glade:54
@@ -779,7 +779,7 @@ msgstr "Anuluj zmiany"
 #: bauble/plugins/garden/accession.py:806 bauble/plugins/garden/plant.py:625
 #: bauble/plugins/plants/family.py:334 bauble/plugins/plants/genus.py:379
 msgid "Cancel your changes."
-msgstr "Kasuj zmiany"
+msgstr "Anuluj zmiany."
 
 #: bauble/pictures.glade:101 bauble/pictures.glade:336 bauble/notes.glade:57
 #: bauble/notes.glade:346
@@ -1865,7 +1865,7 @@ msgstr "Roślina"
 
 #: bauble/plugins/plants/species_editor.glade:7
 msgid "Plant Species Editor"
-msgstr "Edytor gatunku rośliny"
+msgstr "Edytor gatunków rośliny"
 
 #: bauble/plugins/garden/plant_editor.glade:512
 msgid "Plant code"
@@ -2078,7 +2078,7 @@ msgstr "Zapisz zmiany"
 
 #: bauble/plugins/plants/family.py:336
 msgid "Save your changes changes and add a genus to this family."
-msgstr "Zapisz zmiany i dodaj kolejny rodzaj do bieżącej rodziny"
+msgstr "Zapisz zmiany, i dodaj rodzaj do tej rodziny."
 
 #: bauble/plugins/garden/accession.py:808
 msgid "Save your changes changes and add a plant to this accession."
@@ -2086,7 +2086,7 @@ msgstr ""
 
 #: bauble/plugins/plants/genus.py:381
 msgid "Save your changes changes and add a species to this genus."
-msgstr "Zapisz wprowadzone zmiany i dodaj do rodzaju kolejny gatunek"
+msgstr "Zapisz zmiany, i dodaj gatunki do tego rodzaju."
 
 #: bauble/plugins/plants/species_editor.py:908
 msgid "Save your changes changes and add an accession to this species"
@@ -2098,11 +2098,11 @@ msgstr ""
 
 #: bauble/plugins/plants/family.py:338
 msgid "Save your changes changes and add another family."
-msgstr "Zapisz zmiany i dodaj nową rodzinę"
+msgstr "Zapisz zmiany, i dodaj kolejną rodzinę."
 
 #: bauble/plugins/plants/genus.py:383
 msgid "Save your changes changes and add another genus."
-msgstr "Zapisz wprowadzone zmiany i dodaj kolejny rodzaj"
+msgstr "Zapisz zmiany, i dodaj kolejny rodzaj."
 
 #: bauble/plugins/garden/plant.py:627
 msgid "Save your changes changes and add another plant."
@@ -2110,12 +2110,12 @@ msgstr ""
 
 #: bauble/plugins/plants/species_editor.py:910
 msgid "Save your changes changes and add another species "
-msgstr "Zapisz zmiany o dodaj następny gatunek. "
+msgstr "Zapisz zmiany, i dodaj następny gatunek. "
 
 #: bauble/plugins/garden/accession.py:807 bauble/plugins/garden/plant.py:626
 #: bauble/plugins/plants/family.py:335 bauble/plugins/plants/genus.py:380
 msgid "Save your changes."
-msgstr "zapisz zmiany"
+msgstr "Zapisz zmiany."
 
 #: bauble/plugins/garden/accession.py:424
 msgid "Scion"
@@ -2445,7 +2445,7 @@ msgstr "Baza danych, do której jesteś podłączony, jest pusta."
 
 #: bauble/plugins/garden/accession.py:786
 msgid "The date this species was accessioned."
-msgstr "Data wpisu tego gatunku"
+msgstr "Data udostępnienia tego gatunku."
 
 #: bauble/plugins/garden/accession.py:787
 msgid "The date this species was received."
@@ -2635,16 +2635,16 @@ msgid ""
 "The plugins contain a dependency loop. This can happen if two plugins "
 "directly or indirectly rely on each other"
 msgstr ""
-"Wtyczka zawiera pętlę zależności. Ma to miejsce, gdy dwie wtyczki pośrednio "
-"lub bezpośrednio są zależne od siebie"
+"Wtyczki zawierają pętlę zależności. Może się tak zdarzyć, gdy dwie wtyczki "
+"pośrednio lub bezpośrednio są zależne od siebie"
 
 #: bauble/pluginmgr.py:313
 msgid ""
 "The plugins contain a dependency loop. This can happend if two plugins "
 "directly or indirectly rely on each other"
 msgstr ""
-"Wtyczka zawiera pętlę zależności. Dzieje się tak, gdy dwie wtyczki zależą od "
-"siebie nawzajem."
+"Wtyczki zawierają pętlę zależności. Może się tak zdarzyć, gdy dwie wtyczki – "
+"pośrednio lub bezpośrednio – zależą od siebie nawzajem."
 
 #: bauble/plugins/garden/accession.py:264
 msgid ""
@@ -2670,8 +2670,8 @@ msgid ""
 "The species must be selected from the list of completions. To add a species "
 "use the Species editor."
 msgstr ""
-"Gatunek musi zostać wybrany z listy uzupełnień. Aby dodać gatunek użyj "
-"Edytor gatunku"
+"Gatunki muszą być wybrane z listy uzupełnień. Użyj edytora gatunków (ang. "
+"Species edytor), aby dodać gatunek."
 
 #: bauble/plugins/garden/institution.py:88
 msgid "The standard abbreviation of the institution."
@@ -2811,7 +2811,7 @@ msgstr ""
 
 #: bauble/plugins/imex/csv_.py:250
 msgid "Unknown Error."
-msgstr "Nieznany błąd"
+msgstr "Nieznany błąd."
 
 #: bauble/plugins/garden/accession.py:2180
 #: bauble/plugins/garden/location.py:388 bauble/plugins/garden/plant.py:1070
@@ -3258,11 +3258,11 @@ msgstr ""
 
 #: bauble/plugins/plants/species_model.py:60
 msgid "subf."
-msgstr "podforma"
+msgstr "subf."
 
 #: bauble/plugins/plants/species_model.py:56
 msgid "subsp."
-msgstr "podgatunek"
+msgstr "subsp."
 
 #: bauble/plugins/plants/species_model.py:58
 msgid "subvar"
