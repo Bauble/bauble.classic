@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: bauble\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-10-04 14:33-0500\n"
-"PO-Revision-Date: 2016-09-25 09:39+0000\n"
+"PO-Revision-Date: 2016-09-27 16:43+0000\n"
 "Last-Translator: Stanisław Krukowski <dfk0077@riseup.net>\n"
 "Language-Team: Polish <https://hosted.weblate.org/projects/bauble/master/pl/>"
 "\n"
@@ -145,9 +145,8 @@ msgid "<b>Awards:</b>"
 msgstr ""
 
 #: bauble/plugins/plants/infoboxes.glade:616
-#, fuzzy
 msgid "<b>CITES:</b>"
-msgstr "<b>ID:</b>"
+msgstr ""
 
 #: bauble/plugins/garden/plant_editor.glade:824
 msgid "<b>Change history</b>"
@@ -428,9 +427,8 @@ msgid "<b>Voucher of parent material</b>"
 msgstr ""
 
 #: bauble/plugins/garden/loc_editor.glade:348
-#, fuzzy
 msgid "<b>danger zone</b>"
-msgstr "<b>Pochodzenie</b>"
+msgstr ""
 
 #: bauble/plugins/imex/select_export.glade:492
 msgid "<b>options</b>"
@@ -661,9 +659,8 @@ msgstr ""
 " %s"
 
 #: bauble/ui.py:362
-#, fuzzy
 msgid "Bauble development website"
-msgstr "Strona domowa Bauble"
+msgstr ""
 
 #: bauble/connmgr.py:423
 msgid ""
@@ -710,9 +707,8 @@ msgid "Bauble forum"
 msgstr "Forum Bauble"
 
 #: bauble/ui.py:365
-#, fuzzy
 msgid "Bauble wiki"
-msgstr "Strona domowa Bauble"
+msgstr "Bauble wiki"
 
 #: bauble/plugins/garden/source.py:160
 msgid "Botanic Garden or Arboretum"
@@ -825,9 +821,8 @@ msgid "Code"
 msgstr ""
 
 #: bauble/plugins/garden/accession.py:388
-#, fuzzy
 msgid "Collection"
-msgstr "Lokacja"
+msgstr "Kolekcja"
 
 #: bauble/plugins/garden/acc_editor.glade:1531
 msgid "Collection ID"
@@ -1069,9 +1064,8 @@ msgid "Date Received"
 msgstr ""
 
 #: bauble/view.py:175
-#, fuzzy
 msgid "Date created:"
-msgstr "<b>Data utworzenia:</b>"
+msgstr "Data utworzenia:"
 
 #: bauble/plugins/garden/plant_editor.glade:645
 msgid "Date of Change"
@@ -1490,14 +1484,12 @@ msgid "Import"
 msgstr "Zaimportuj"
 
 #: bauble/plugins/garden/accession.py:395
-#, fuzzy
 msgid "Imported"
-msgstr "Zaimportuj"
+msgstr "Zaimportowane"
 
 #: bauble/plugins/garden/accession.py:387
-#, fuzzy
 msgid "Impound"
-msgstr "Zaimportuj"
+msgstr ""
 
 #: bauble/plugins/imex/csv_.py:326
 msgid ""
@@ -1581,9 +1573,8 @@ msgid "Label distribution"
 msgstr ""
 
 #: bauble/view.py:184
-#, fuzzy
 msgid "Last updated:"
-msgstr "<b>Ostatnio zmodyfikowany:</b>"
+msgstr "Ostatnio zaktualizowany:"
 
 #: bauble/plugins/garden/acc_editor.glade:1914
 msgid "Latitude"
@@ -1719,9 +1710,8 @@ msgid "Names"
 msgstr "Nazwy"
 
 #: bauble/plugins/garden/accession.py:394
-#, fuzzy
 msgid "National"
-msgstr "Lokacja"
+msgstr "Narodowy"
 
 #: bauble/plugins/plants/species_model.py:169
 msgid "Near Threatened (NT)"
@@ -2162,9 +2152,8 @@ msgid "Search National Plant Germplasm System"
 msgstr "Szukaj w National Plant Germplasm System (NPGS)"
 
 #: bauble/utils/web.py:95
-#, fuzzy
 msgid "Search TPL"
-msgstr "Przeszukaj ITIS"
+msgstr "Przeszukaj TPL"
 
 #: bauble/utils/web.py:95
 msgid "Search The Plant List online database"
@@ -2173,7 +2162,7 @@ msgstr ""
 #: bauble/utils/web.py:106
 #, fuzzy
 msgid "Search Tropicos"
-msgstr "Szukaj w Google"
+msgstr "Przeszukaj (wyszukaj) Tropicos"
 
 #: bauble/utils/web.py:106
 msgid "Search Tropicos (MissouriBG) online database"
@@ -2739,15 +2728,11 @@ msgid ""
 msgstr ""
 
 #: bauble/db.py:38
-#, fuzzy
 msgid ""
 "This version of Bauble requires SQLAlchemy 0.6 or greater. You are using "
 "version %s. Please download and install a newer version of SQLAlchemy from "
 "http://www.sqlalchemy.org or contact your system administrator."
 msgstr ""
-"Ta wersja programu Bauble wymaga SQLAlchemy w wersji 0.5.0 lub wyższej. "
-"Proszę pobrać i zainstalować nowszą wersję SQLAlchemy ze strony http://www."
-"sqlalchemy.org lub skontaktować się z administratorem systemu."
 
 #: bauble/view.py:1190
 msgid "Timestamp"
@@ -3102,9 +3087,8 @@ msgid "_parse_lat_lon() -- incorrect format: %s"
 msgstr ""
 
 #: bauble/plugins/imex/select_export.glade:119
-#, fuzzy
 msgid "accessions"
-msgstr "Wpis"
+msgstr "dostepy"
 
 #: bauble/plugins/imex/select_export.glade:204
 msgid "all referred to objects"
@@ -3171,9 +3155,8 @@ msgid "history size must be greater than zero and less than the history size"
 msgstr "rozmiar historii musi być większy niż zero i mniejszy rozmiar historii"
 
 #: bauble/ui.py:660
-#, fuzzy
 msgid "http://bauble.wikidot.com"
-msgstr "http://bauble.belizebotanic.org"
+msgstr "http://bauble.wikidot.com"
 
 #: bauble/plugins/imex/csv_.py:356
 msgid "importing %(table)s table from %(filename)s"
