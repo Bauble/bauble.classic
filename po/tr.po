@@ -8,15 +8,17 @@ msgstr ""
 "Project-Id-Version: bauble\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-10-04 14:33-0500\n"
-"PO-Revision-Date: 2015-07-12 18:49-0500\n"
-"Last-Translator: Translate it <Unknown>\n"
-"Language-Team: Turkish <tr@li.org>\n"
+"PO-Revision-Date: 2017-02-20 06:32+0000\n"
+"Last-Translator: Can Yapan <canyapan@gmail.com>\n"
+"Language-Team: Turkish "
+"<https://hosted.weblate.org/projects/bauble/master/tr/>\n"
 "Language: tr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: Weblate 2.12-dev\n"
 "X-Launchpad-Export-Date: 2012-03-17 05:06+0000\n"
-"X-Generator: Poedit 1.5.4\n"
 "X-Poedit-Basepath: ../\n"
 "X-Poedit-SearchPath-0: bauble\n"
 "X-Poedit-SearchPath-1: bauble/utils\n"
@@ -26,11 +28,11 @@ msgstr ""
 
 #: bauble/btypes.py:82
 msgid "\"%(value)s\" not in Enum.values: %(all_values)s"
-msgstr ""
+msgstr "\"%(value)s\" Enum.values içinde yok: %(all_values)s"
 
 #: bauble/plugins/garden/prop_editor.glade:1343
 msgid "# Germinated"
-msgstr ""
+msgstr "# Çimlenmiş"
 
 #: bauble/plugins/garden/propagation.py:184
 msgid "# of seedlings: %s"
@@ -38,19 +40,19 @@ msgstr ""
 
 #: bauble/plugins/garden/prop_editor.glade:1152
 msgid "# of seeds"
-msgstr ""
+msgstr "# tohumlar"
 
 #: bauble/plugins/garden/propagation.py:168
 msgid "# of seeds: %s"
-msgstr ""
+msgstr "# tohumlar: %s"
 
 #: bauble/plugins/garden/prop_editor.glade:1393
 msgid "% Germinated"
-msgstr ""
+msgstr "% Çimlenmiş"
 
 #: bauble/plugins/plants/species_model.py:377
 msgid "%(group)s Group"
-msgstr ""
+msgstr "%(group)s Grup"
 
 #: bauble/plugins/garden/accession.py:206
 msgid ""
