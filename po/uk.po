@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: bauble\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-10-04 14:33-0500\n"
-"PO-Revision-Date: 2017-04-21 17:23+0000\n"
+"PO-Revision-Date: 2017-04-30 17:48+0000\n"
 "Last-Translator: Володимир Бриняк <bardvv@gmail.com>\n"
 "Language-Team: Ukrainian "
 "<https://hosted.weblate.org/projects/bauble/master/uk/>\n"
@@ -1915,7 +1915,7 @@ msgstr ""
 #: bauble/plugins/garden/__init__.py:126
 #: bauble/plugins/garden/accession.py:418 bauble/plugins/garden/plant.py:410
 msgid "Plant"
-msgstr ""
+msgstr "Рослина"
 
 #: bauble/plugins/plants/species_editor.glade:7
 msgid "Plant Species Editor"
