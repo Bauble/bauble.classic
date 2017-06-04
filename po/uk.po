@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: bauble\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-10-04 14:33-0500\n"
-"PO-Revision-Date: 2017-05-28 10:21+0000\n"
+"PO-Revision-Date: 2017-06-04 19:03+0000\n"
 "Last-Translator: Володимир Бриняк <bardvv@gmail.com>\n"
 "Language-Team: Ukrainian "
 "<https://hosted.weblate.org/projects/bauble/master/uk/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<="
 "4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 2.14.1\n"
+"X-Generator: Weblate 2.15-dev\n"
 "X-Launchpad-Export-Date: 2011-11-11 05:23+0000\n"
 "X-Poedit-Basepath: ../\n"
 "X-Poedit-SearchPath-0: bauble\n"
@@ -2966,9 +2966,8 @@ msgid "Verifications"
 msgstr "Перевірки"
 
 #: bauble/plugins/garden/acc_editor.glade:3156
-#, fuzzy
 msgid "Verifier"
-msgstr "Контрольнік"
+msgstr "Контролер"
 
 #: bauble/plugins/plants/species.py:204
 msgid "Vernacular Names"
@@ -2984,7 +2983,6 @@ msgstr "Версія"
 
 #: bauble/plugins/garden/acc_editor.glade:2721
 #: bauble/plugins/garden/accession.py:2540
-#, fuzzy
 msgid "Vouchers"
 msgstr "Гарант"
 
