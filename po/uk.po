@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: bauble\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-10-04 14:33-0500\n"
-"PO-Revision-Date: 2017-06-04 19:03+0000\n"
+"PO-Revision-Date: 2017-06-23 16:43+0000\n"
 "Last-Translator: Володимир Бриняк <bardvv@gmail.com>\n"
 "Language-Team: Ukrainian "
 "<https://hosted.weblate.org/projects/bauble/master/uk/>\n"
@@ -1119,9 +1119,8 @@ msgid "Dead"
 msgstr "Загинуло"
 
 #: bauble/plugins/garden/plant.py:286
-#, fuzzy
 msgid "Deleted, yr. dead. unknown"
-msgstr "Видаляється, рік. мертвий. невідомий"
+msgstr "Вилучено, рік загибелі невідомий"
 
 #: bauble/plugins/tag/tag.glade:85 bauble/plugins/garden/loc_editor.glade:171
 #: bauble/plugins/garden/acc_editor.glade:2858
@@ -2281,15 +2280,14 @@ msgid "Slice"
 msgstr "Фрагмент"
 
 #: bauble/plugins/abcd/__init__.py:190
-#, fuzzy
 msgid ""
 "Some or all of the information about your institution or business is not "
 "complete. Please make sure that the Name, Technical Contact, Email, Contact "
 "and Institution Code fields are filled in."
 msgstr ""
-"Деякі або всі відомості про вашу установу або компанія відсутня. Будь ласка, "
-"переконайтеся що заповнені поля Ім'я, Технічний контакт, Електронна пошта, "
-"Контакт і Код установи."
+"Частина або вся інформація про організацію або спеціальності відсутня. Будь "
+"ласка перевірте заповнення полів: Ім'я, Технічні контакти, Електронна пошта, "
+"Контакти і Код Організації."
 
 #: bauble/plugins/garden/acc_editor.glade:1130
 #: bauble/plugins/garden/acc_editor.glade:2365
@@ -2857,9 +2855,8 @@ msgid "Today's date"
 msgstr "Сьогоднішня дата"
 
 #: bauble/plugins/garden/plant.py:291
-#, fuzzy
 msgid "Transfered to Totem Field"
-msgstr "Передано в Тотем поле"
+msgstr "Передано в Totem Field"
 
 #: bauble/plugins/garden/plant.py:287
 msgid "Transferred to another acc.no."
@@ -2987,9 +2984,8 @@ msgid "Vouchers"
 msgstr "Гарант"
 
 #: bauble/plugins/plants/species_model.py:168
-#, fuzzy
 msgid "Vulnerable (VU)"
-msgstr "Vulnerable (VU)"
+msgstr "Уразливі види (VU)"
 
 #: bauble/plugins/garden/acc_editor.glade:2038
 msgid "West"
@@ -3229,9 +3225,8 @@ msgid "by %(verifier)s"
 msgstr "%(verifier)s"
 
 #: bauble/plugins/garden/plant.py:933
-#, fuzzy
 msgid "cannot branch a new plant"
-msgstr "не вдається гілка нової рослини"
+msgstr "не може відгалужити нову рослину"
 
 #: bauble/plugins/garden/propagation.py:242
 msgid "cm"
@@ -3344,7 +3339,6 @@ msgid "open the wikipedia page about this species"
 msgstr "відкрити сторінку вікіпедії про цей вид"
 
 #: bauble/plugins/imex/select_export.glade:338
-#, fuzzy
 msgid "output:"
 msgstr "вивід:"
 
