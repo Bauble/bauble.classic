@@ -5,13 +5,15 @@ Documentation for Bauble 1.0
 .. image:: https://hosted.weblate.org/widgets/bauble/-/svg-badge.svg
 .. image:: https://coveralls.io/repos/Bauble/bauble.classic/badge.svg?branch=master&service=github :target: https://coveralls.io/github/Bauble/bauble.classic?branch=master 
 
-Bauble is an application for managing botanical specimen collections.
-With it you can create a searchable database of plant records.
+You are looking at the documentation of unmaintained bauble.classic.  If
+you're interested in an application for managing botanical specimen
+collections, please check `ghini.desktop <http://ghini.readthedocs.io/>`_,
+Bauble's most active fork.
 
-It is `open <http://www.opensource.org>`_ and `free <http://www.fsf.org>`_
-and is released under the `GNU Public License
-<http://www.fsf.org/licensing/licenses/gpl.html>`_
-
+Bauble was `open <http://www.opensource.org>`_ and `free
+<http://www.fsf.org>`_ and was released under the `GNU Public License
+<http://www.fsf.org/licensing/licenses/gpl.html>`_.  As derived work, `ghini.desktop
+<http://github.com/Ghini/ghini.desktop>`_ is tied to the same license and committed to the same freedom.
 
 Statements
 ===================
